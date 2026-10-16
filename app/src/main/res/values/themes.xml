@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.FbrClients" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/brand_background</item>
+        <item name="android:statusBarColor">@color/brand_green</item>
+    </style>
+    <color name="brand_green">#0B6E4F</color>
+    <color name="brand_background">#FFFFFF</color>
+</resources>
