@@ -214,7 +214,7 @@ fun ClientEditScreen(
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = { Text("Delete ${vm.name}?") },
-            text = { Text("This removes the client and cannot be undone.") },
+            text = { Text("This removes the client and all their Wealth Statements. It cannot be undone.") },
             confirmButton = {
                 TextButton(
                     onClick = { confirmDelete = false; vm.delete(onDeleted) },

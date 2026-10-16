@@ -1,6 +1,11 @@
 # FBR Clients — Approved Design
 
-Status: **Design approved by the owner on 2026-10-16. No code written yet.**
+Status: **Design approved by the owner on 2026-10-16. All build-plan steps implemented (2026-10-16).**
+
+Small additions made during the build (not in the original design):
+- Clients and Wealth Statements can be deleted (with a confirmation).
+- In the property form, a missing sub-type can be added straight from the sub-type list.
+- Wrong PINs: after 5 tries the keypad pauses (30 s, doubling each further try).
 
 An offline Android app for one tax practitioner. It keeps clients' IRIS login details and contact information, plus a yearly **Wealth Statement** that follows the FBR IRIS layout.
 

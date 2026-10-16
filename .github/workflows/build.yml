@@ -16,24 +16,24 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       BUILD_NUMBER: ${{ github.run_number }}
       IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Version
         run: |
           if [ "$IS_RELEASE" = "true" ]; then V="${GITHUB_REF_NAME#v}"; else V="0.1.${BUILD_NUMBER}"; fi
           echo "VERSION_NAME=$V" >> "$GITHUB_ENV"
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
 
       - name: Unit tests
         run: |
