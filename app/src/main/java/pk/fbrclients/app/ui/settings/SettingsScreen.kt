@@ -66,6 +66,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onChangePin: () -> Unit,
     onCategories: () -> Unit,
+    onImport: () -> Unit,
     onRestored: () -> Unit,
 ) {
     val ctx = LocalContext.current
@@ -146,6 +147,10 @@ fun SettingsScreen(
             HorizontalDivider(Modifier.padding(top = 8.dp))
             Section("Wealth Statement")
             SettingRow("Categories and property sub-types", "Add missing IRIS codes, categories and sub-types", onClick = onCategories)
+
+            HorizontalDivider(Modifier.padding(top = 8.dp))
+            Section("Clients")
+            SettingRow("Import clients from Excel", "Usernames (CNIC) and passwords from an .xlsx or CSV file", onClick = onImport)
 
             HorizontalDivider(Modifier.padding(top = 8.dp))
             Section("Backup")

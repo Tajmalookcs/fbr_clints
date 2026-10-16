@@ -22,6 +22,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -66,6 +67,7 @@ fun ClientListScreen(
     onAdd: () -> Unit,
     onLock: () -> Unit,
     onSettings: () -> Unit,
+    onImport: () -> Unit,
 ) {
     val query by vm.query.collectAsStateWithLifecycle()
     val clients by vm.clients.collectAsStateWithLifecycle()
@@ -106,11 +108,14 @@ fun ClientListScreen(
             when {
                 list == null -> Unit
                 list.isEmpty() -> Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-                    Text(
-                        if (query.isBlank()) "No clients yet.\nTap “Add client” to start." else "No client matches “$query”.",
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            if (query.isBlank()) "No clients yet.\nTap “Add client”, or import them from Excel." else "No client matches “$query”.",
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (query.isBlank()) OutlinedButton(onClick = onImport) { Text("Import from Excel") }
+                    }
                 }
                 else -> LazyColumn(contentPadding = PaddingValues(bottom = 96.dp)) {
                     item {

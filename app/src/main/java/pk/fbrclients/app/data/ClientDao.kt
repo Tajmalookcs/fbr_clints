@@ -51,4 +51,13 @@ interface ClientDao {
 
     @Delete
     suspend fun delete(client: Client)
+
+    @Query("SELECT * FROM client")
+    suspend fun allOnce(): List<Client>
+
+    @Insert
+    suspend fun insertAll(clients: List<Client>)
+
+    @Update
+    suspend fun updateAll(clients: List<Client>)
 }

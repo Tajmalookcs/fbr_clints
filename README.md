@@ -17,6 +17,7 @@ Android asks you to allow installs from your browser the first time.
 - **Clients:** search by name, CNIC, NTN or mobile. On a client's page: Call, WhatsApp, SMS, Email, Copy CNIC, Copy Password (clears after 30 s), Open IRIS.
 - **Wealth Statement:** on a client's page, tap **New tax year**. It can copy every item from the previous year. Tabs: Assets, Liabilities, Reconciliation. Every description has a **Copy** button for pasting into IRIS; on the Reconciliation tab, tap any amount to copy it.
 - **Settings** (gear icon on the client list): change PIN, fingerprint, auto-lock time, categories and property sub-types (add unknown IRIS codes here), backup and restore.
+- **Import from Excel:** *Settings → Import clients from Excel*. Column A = CNIC (username), column B = password, or use headers (Username, Password, Name, NTN, Mobile, Email). The file is read on the phone only.
 - **Backups:** *Settings → Back up now* makes an encrypted `.fbrbak` file with its own password. *Restore* replaces everything on the phone with the backup. The password cannot be recovered.
 
 ## How the APK is built

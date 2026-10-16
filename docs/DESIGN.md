@@ -5,6 +5,7 @@ Status: **Design approved by the owner on 2026-10-16. All build-plan steps imple
 Small additions made during the build (not in the original design):
 - Clients and Wealth Statements can be deleted (with a confirmation).
 - In the property form, a missing sub-type can be added straight from the sub-type list.
+- Import clients from Excel / CSV (owner request, 2026-10-16). Clients without a name get their CNIC as the name until edited.
 - Wrong PINs: after 5 tries the keypad pauses (30 s, doubling each further try).
 
 An offline Android app for one tax practitioner. It keeps clients' IRIS login details and contact information, plus a yearly **Wealth Statement** that follows the FBR IRIS layout.
@@ -22,7 +23,7 @@ An offline Android app for one tax practitioner. It keeps clients' IRIS login de
 | Min Android | 8.0 (API 26) |
 | Distribution | APK installed directly (not the Play Store), built by GitHub Actions |
 | Return data | **Wealth Statement only.** No income or tax computation, filing status or PDF attachments |
-| Data entry | Manual (no PDF import) |
+| Data entry | Manual, plus import of clients (CNIC/username, password, optional name, NTN, mobile, email) from an Excel .xlsx or CSV file. No PDF import. |
 
 ## 2. Security
 
