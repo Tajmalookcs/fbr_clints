@@ -112,5 +112,5 @@ fun propertyDescription(type: String, subType: String, area: String, unit: Strin
         if (subType.isNotBlank()) append(" – ").append(subType.trim())
         val areaPart = listOf(area.trim(), unit.trim()).filter { it.isNotEmpty() }.joinToString(" ")
         if (areaPart.isNotEmpty()) append(", ").append(areaPart)
-        if (address.isNotBlank()) append(", ").append(address.trim().replace(Regex("\\s*\\n\\s*"), ", "))
+        if (address.isNotBlank()) append(", ").append(address.trim().replace(Regex("\\s*,?\\s*\\n\\s*"), ", "))
     }
