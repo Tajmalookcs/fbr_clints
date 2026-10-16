@@ -61,6 +61,8 @@ class ClientImportTest {
         assertEquals(ClientImport.Field.PASSWORD, ClientImport.fieldFor("PASSWORD"))
         assertEquals(ClientImport.Field.NAME, ClientImport.fieldFor("Client Name"))
         assertEquals(ClientImport.Field.MOBILE, ClientImport.fieldFor("Cell No."))
+        assertEquals(ClientImport.Field.NTN, ClientImport.fieldFor("NTN No"))
+        assertEquals(ClientImport.Field.NTN, ClientImport.fieldFor("Client NTN"))
     }
 
     @Test fun planAddsUpdatesAndSkips() {

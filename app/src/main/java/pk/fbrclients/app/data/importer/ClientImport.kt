@@ -30,11 +30,13 @@ object ClientImport {
     /** Which field a header cell names, or null. Order matters: "User Name" is the CNIC, not the client name. */
     fun fieldFor(header: String): Field? {
         val h = header.lowercase().filter { it.isLetter() }
+        // Words, so that "NTN" isn't found inside "clieNTName".
+        val words = header.lowercase().split(Regex("[^a-z]+")).filter { it.isNotEmpty() }
         return when {
             h.isEmpty() -> null
             "pass" in h || "pwd" in h -> Field.PASSWORD
             "cnic" in h || "user" in h || "login" in h || h == "id" || h == "irisid" -> Field.CNIC
-            "ntn" in h -> Field.NTN
+            words.any { it == "ntn" || it.startsWith("ntn") } -> Field.NTN
             "mobile" in h || "phone" in h || "cell" in h || "contact" in h || "whatsapp" in h -> Field.MOBILE
             "mail" in h -> Field.EMAIL
             "name" in h -> Field.NAME
