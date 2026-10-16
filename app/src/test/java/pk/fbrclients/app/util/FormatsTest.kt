@@ -29,6 +29,23 @@ class FormatsTest {
         assertFalse(Formats.isValidEmail("ali khan@example.com"))
     }
 
+    @Test fun usernames() {
+        assertEquals("12345-1234567-1", Formats.normalizeUsername("1234512345671"))
+        assertEquals("12345-1234567-1", Formats.normalizeUsername(" 12345-1234567-1 "))
+        assertEquals("1234567", Formats.normalizeUsername("1234567"))
+        assertEquals("A123456", Formats.normalizeUsername("a123456"))
+        assertNull(Formats.normalizeUsername("123456"))
+        assertNull(Formats.normalizeUsername("123451234567"))
+        assertNull(Formats.normalizeUsername("AB12345"))
+    }
+
+    @Test fun mobiles() {
+        assertEquals("03001234567", Formats.normalizeMobileDigits("00923001234567"))
+        assertEquals("03001234567", Formats.normalizeMobileDigits("+92 300 1234567"))
+        assertEquals("03001234567", Formats.normalizeMobileDigits("3001234567"))
+        assertEquals("0912345678", Formats.normalizeMobileDigits("0912345678"))
+    }
+
     @Test fun whatsApp() {
         assertEquals("923001234567", Formats.whatsAppNumber("0300-1234567"))
         assertNull(Formats.whatsAppNumber("12345"))

@@ -55,6 +55,20 @@ object Formats {
     fun formatCnic(digits: String) = withDashes(digitsOnly(digits), CNIC_DASHES)
     fun formatMobile(digits: String) = withDashes(digitsOnly(digits), MOBILE_DASHES)
 
+    private val NTN = Regex("^([0-9]{7}|[A-Z][0-9]{6})$")
+
+    /**
+     * IRIS username: a 13-digit CNIC (shown as 12345-1234567-1) for individuals,
+     * or an NTN (1234567 or A123456) for companies and AOPs. Null if neither.
+     */
+    fun normalizeUsername(raw: String): String? {
+        val t = raw.trim().uppercase().filterNot { it.isWhitespace() }
+        val d = digitsOnly(t)
+        if (d.length == CNIC_DIGITS && t.all { it in '0'..'9' || it == '-' }) return formatCnic(d)
+        if (NTN.matches(t)) return t
+        return null
+    }
+
     fun isValidCnic(digits: String) = digits.length == CNIC_DIGITS && digits.all { it in '0'..'9' }
 
     fun isValidMobile(digits: String) =
@@ -62,6 +76,20 @@ object Formats {
 
     private val EMAIL = Regex("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
     fun isValidEmail(s: String) = EMAIL.matches(s.trim())
+
+    /**
+     * Brings a Pakistani mobile to 03XXXXXXXXX digits if it is one:
+     * 3001234567, 923001234567 and 00923001234567 all become 03001234567.
+     */
+    fun normalizeMobileDigits(raw: String): String {
+        val d = digitsOnly(raw)
+        return when {
+            d.length == 14 && d.startsWith("00923") -> "0" + d.drop(4)
+            d.length == 12 && d.startsWith("923") -> "0" + d.drop(2)
+            d.length == 10 && d.startsWith("3") -> "0$d"
+            else -> d
+        }
+    }
 
     /** 03001234567 -> 923001234567, for wa.me links. */
     fun whatsAppNumber(mobile: String): String? {

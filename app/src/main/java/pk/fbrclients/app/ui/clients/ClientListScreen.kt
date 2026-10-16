@@ -92,7 +92,7 @@ fun ClientListScreen(
                 value = query,
                 onValueChange = { vm.query.value = it },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                placeholder = { Text("Search name, CNIC, NTN or mobile") },
+                placeholder = { Text("Search name, business, CNIC, NTN, mobile") },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                 trailingIcon = {
                     if (query.isNotEmpty()) {
@@ -146,6 +146,9 @@ private fun ClientRow(c: Client, onClick: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Text(c.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (c.businessName.isNotBlank() && c.businessName != c.name) {
+            Text(c.businessName, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
         val sub = listOf(c.cnic, c.mobile).filter { it.isNotBlank() }.joinToString("   ·   ")
         Text(sub, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }

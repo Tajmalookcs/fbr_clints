@@ -133,8 +133,9 @@ fun ImportScreen(vm: ImportViewModel, onBack: () -> Unit) {
                 ImportViewModel.State.Pick -> {
                     Text("Add many clients at once from an Excel (.xlsx) or CSV file.", style = MaterialTheme.typography.bodyLarge)
                     Hint(
-                        "• Column A: CNIC (IRIS username), Column B: password — or use headers like “Username” and “Password”.\n" +
-                            "• Optional columns with headers: Name, NTN, Mobile, Email.\n" +
+                        "• Column A: IRIS username (CNIC, or NTN for companies / AOPs), Column B: password — or use headers like “Username” and “Password”.\n" +
+                            "• Optional columns with headers: Name, Business Name, NTN, Cell No / Mobile, Email, Address.\n" +
+                            "• Passwords are imported exactly as written.\n" +
                             "• The file is read on this phone only. Nothing is uploaded.",
                     )
                     Button(onClick = launchPicker, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Choose file") }
@@ -168,7 +169,7 @@ fun ImportScreen(vm: ImportViewModel, onBack: () -> Unit) {
                         Text("Update the password of clients already in the app")
                     }
                     if (plan.toAdd.any { it.name == it.cnic }) {
-                        Hint("Clients without a name are saved with their CNIC as the name. Open a client and tap Edit to add the name.")
+                        Hint("Clients without a name are saved with their business name or username as the name. Open a client and tap Edit to add the name.")
                     }
                     if (plan.toAdd.isNotEmpty()) {
                         Text("First new clients", style = MaterialTheme.typography.titleSmall)

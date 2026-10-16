@@ -102,7 +102,7 @@ fun ClientDetailScreen(
                 ActionButton("WhatsApp", Icons.AutoMirrored.Filled.Send, hasMobile) { Actions.whatsApp(ctx, c.mobile) }
                 ActionButton("SMS", null, hasMobile) { Actions.sms(ctx, c.mobile) }
                 ActionButton("Email", Icons.Filled.Email, c.email.isNotBlank()) { Actions.email(ctx, c.email) }
-                ActionButton("Copy CNIC", null, true) { clipboard.copy("CNIC", c.cnic) }
+                ActionButton("Copy Username", null, true) { clipboard.copy("Username", c.cnic) }
                 ActionButton("Copy Password", null, c.irisPassword.isNotEmpty()) {
                     clipboard.copy("Password", c.irisPassword, sensitive = true)
                 }
@@ -111,7 +111,8 @@ fun ClientDetailScreen(
 
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    Field("CNIC (IRIS username)", c.cnic, mono = true)
+                    if (c.businessName.isNotBlank()) Field("Business Name", c.businessName)
+                    Field("IRIS username (" + (if (c.cnic.length == 15) "CNIC" else "NTN") + ")", c.cnic, mono = true)
                     PasswordField(c, showPassword, onToggle = { showPassword = !showPassword })
                     Field("NTN", c.ntn, mono = true)
                     Field("Mobile", c.mobile, mono = true)

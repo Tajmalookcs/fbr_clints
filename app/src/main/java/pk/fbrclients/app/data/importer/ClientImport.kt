@@ -5,29 +5,36 @@ import pk.fbrclients.app.util.Formats
 
 /**
  * Turns spreadsheet rows into clients. Columns are found from the header row
- * (e.g. "Username", "CNIC", "Password", "Name"). Without a header, column A
- * is the CNIC/username and column B the password.
+ * (e.g. "Username", "Password", "Name", "Business Name", "Cell No", "Address").
+ * Without a header, column A is the username (CNIC or NTN) and column B the password.
  */
 object ClientImport {
-    enum class Field { CNIC, PASSWORD, NAME, NTN, MOBILE, EMAIL }
+    enum class Field { USERNAME, PASSWORD, NAME, BUSINESS, NTN, MOBILE, EMAIL, ADDRESS }
 
     data class Row(
         val rowNumber: Int,
-        val cnic: String,
+        /** CNIC (12345-1234567-1) or NTN (1234567 / A123456). */
+        val username: String,
+        /** Exactly as in the file; never trimmed or changed. */
         val password: String,
         val name: String = "",
+        val businessName: String = "",
         val ntn: String = "",
         val mobile: String = "",
         val email: String = "",
+        val address: String = "",
     )
 
     data class Parsed(val rows: List<Row>, val problems: List<String>, val hadHeader: Boolean)
 
     class NoColumnsException : Exception(
-        "Couldn't find the CNIC/username and password columns. Put them in columns A and B, or give them headers like “Username” and “Password”.",
+        "Couldn't find the username and password columns. Put them in columns A and B, or give them headers like “Username” and “Password”.",
     )
 
-    /** Which field a header cell names, or null. Order matters: "User Name" is the CNIC, not the client name. */
+    /**
+     * Which field a header cell names, or null. Order matters:
+     * "User Name" is the username and "Business Name" the business, not the client name.
+     */
     fun fieldFor(header: String): Field? {
         val h = header.lowercase().filter { it.isLetter() }
         // Words, so that "NTN" isn't found inside "clieNTName".
@@ -35,10 +42,12 @@ object ClientImport {
         return when {
             h.isEmpty() -> null
             "pass" in h || "pwd" in h -> Field.PASSWORD
-            "cnic" in h || "user" in h || "login" in h || h == "id" || h == "irisid" -> Field.CNIC
+            "cnic" in h || "user" in h || "login" in h || h == "id" || h == "irisid" -> Field.USERNAME
             words.any { it == "ntn" || it.startsWith("ntn") } -> Field.NTN
             "mobile" in h || "phone" in h || "cell" in h || "contact" in h || "whatsapp" in h -> Field.MOBILE
             "mail" in h -> Field.EMAIL
+            "business" in h || "company" in h || "firm" in h || "shop" in h -> Field.BUSINESS
+            "address" in h || words.any { it == "addr" } -> Field.ADDRESS
             "name" in h -> Field.NAME
             else -> null
         }
@@ -47,7 +56,7 @@ object ClientImport {
     private fun headerColumns(row: List<String>): Map<Field, Int>? {
         val map = LinkedHashMap<Field, Int>()
         row.forEachIndexed { i, cell -> fieldFor(cell)?.let { f -> map.putIfAbsent(f, i) } }
-        return map.takeIf { Field.CNIC in it && Field.PASSWORD in it }
+        return map.takeIf { Field.USERNAME in it && Field.PASSWORD in it }
     }
 
     fun parse(sheet: List<List<String>>): Parsed {
@@ -58,8 +67,8 @@ object ClientImport {
             header != null -> header.first + 1 to header.second
             firstRows.isNotEmpty() -> {
                 val (i, first) = firstRows.first()
-                if (Formats.digitsOnly(first.getOrElse(0) { "" }).length != Formats.CNIC_DIGITS) throw NoColumnsException()
-                i to mapOf(Field.CNIC to 0, Field.PASSWORD to 1)
+                if (Formats.normalizeUsername(first.getOrElse(0) { "" }) == null) throw NoColumnsException()
+                i to mapOf(Field.USERNAME to 0, Field.PASSWORD to 1)
             }
             else -> throw NoColumnsException()
         }
@@ -71,26 +80,25 @@ object ClientImport {
             val r = sheet[i]
             if (r.all { it.isBlank() }) continue
             val n = i + 1 // row number as shown in Excel
-            fun get(f: Field) = cols[f]?.let { r.getOrNull(it) }?.trim().orEmpty()
+            fun raw(f: Field) = cols[f]?.let { r.getOrNull(it) }.orEmpty()
+            fun get(f: Field) = raw(f).trim()
 
-            val rawCnic = get(Field.CNIC)
-            val cnicDigits = Formats.digitsOnly(rawCnic)
-            if (cnicDigits.length != Formats.CNIC_DIGITS) {
-                problems += "Row $n: “${rawCnic.ifEmpty { "empty" }}” is not a 13-digit CNIC — skipped"
+            val rawUser = get(Field.USERNAME)
+            val username = Formats.normalizeUsername(rawUser)
+            if (username == null) {
+                problems += "Row $n: “${rawUser.ifEmpty { "empty" }}” is not a 13-digit CNIC or a 7-character NTN — skipped"
                 continue
             }
-            val firstSeen = seen[cnicDigits]
+            val firstSeen = seen[username]
             if (firstSeen != null) {
-                problems += "Row $n: same CNIC as row $firstSeen — skipped"
+                problems += "Row $n: same username as row $firstSeen — skipped"
                 continue
             }
-            seen[cnicDigits] = n
+            seen[username] = n
 
-            var mobile = Formats.digitsOnly(get(Field.MOBILE))
-            if (mobile.length == 10 && mobile.startsWith("3")) mobile = "0$mobile" // Excel dropped the leading 0
-            if (mobile.length == 12 && mobile.startsWith("923")) mobile = "0" + mobile.drop(2)
+            var mobile = Formats.normalizeMobileDigits(get(Field.MOBILE))
             if (mobile.isNotEmpty() && !Formats.isValidMobile(mobile)) {
-                problems += "Row $n: mobile “${get(Field.MOBILE)}” isn't valid — left empty"
+                problems += "Row $n: mobile “${get(Field.MOBILE)}” isn't a Pakistani mobile — left empty"
                 mobile = ""
             }
             var email = get(Field.EMAIL)
@@ -100,12 +108,14 @@ object ClientImport {
             }
             rows += Row(
                 rowNumber = n,
-                cnic = Formats.formatCnic(cnicDigits),
-                password = get(Field.PASSWORD),
+                username = username,
+                password = raw(Field.PASSWORD),
                 name = get(Field.NAME),
+                businessName = get(Field.BUSINESS),
                 ntn = get(Field.NTN),
                 mobile = if (mobile.isEmpty()) "" else Formats.formatMobile(mobile),
                 email = email,
+                address = get(Field.ADDRESS),
             )
         }
         return Parsed(rows, problems, hadHeader = header != null)
@@ -120,26 +130,29 @@ object ClientImport {
     )
 
     fun plan(rows: List<Row>, existing: List<Client>, updatePasswords: Boolean): Plan {
-        val byCnic = existing.associateBy { it.cnic }
+        val byUsername = existing.associateBy { it.cnic }
         val add = mutableListOf<Client>()
         val update = mutableListOf<Client>()
         var same = 0
         for (r in rows) {
-            val old = byCnic[r.cnic]
+            val old = byUsername[r.username]
             if (old == null) {
                 add += Client(
-                    cnic = r.cnic,
+                    cnic = r.username,
                     irisPassword = r.password,
-                    // Name is required; until it's known, show the CNIC.
-                    name = r.name.ifBlank { r.cnic },
-                    ntn = r.ntn, mobile = r.mobile, email = r.email,
+                    // Name is required; until it's known, show the business name or the username.
+                    name = r.name.ifBlank { r.businessName.ifBlank { r.username } },
+                    businessName = r.businessName,
+                    ntn = r.ntn, mobile = r.mobile, email = r.email, address = r.address,
                 )
                 continue
             }
             val merged = old.copy(
                 irisPassword = if (updatePasswords && r.password.isNotEmpty()) r.password else old.irisPassword,
                 name = if (old.name.isBlank() || old.name == old.cnic) r.name.ifBlank { old.name } else old.name,
+                businessName = old.businessName.ifBlank { r.businessName },
                 ntn = old.ntn.ifBlank { r.ntn },
+                address = old.address.ifBlank { r.address },
                 mobile = old.mobile.ifBlank { r.mobile },
                 email = old.email.ifBlank { r.email },
             )

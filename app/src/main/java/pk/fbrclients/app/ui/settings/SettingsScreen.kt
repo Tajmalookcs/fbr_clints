@@ -150,7 +150,7 @@ fun SettingsScreen(
 
             HorizontalDivider(Modifier.padding(top = 8.dp))
             Section("Clients")
-            SettingRow("Import clients from Excel", "Usernames (CNIC) and passwords from an .xlsx or CSV file", onClick = onImport)
+            SettingRow("Import clients from Excel", "Usernames (CNIC / NTN), passwords and details from an .xlsx or CSV file", onClick = onImport)
 
             HorizontalDivider(Modifier.padding(top = 8.dp))
             Section("Backup")

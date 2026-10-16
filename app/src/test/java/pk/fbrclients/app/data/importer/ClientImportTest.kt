@@ -20,9 +20,9 @@ class ClientImportTest {
         )
         val p = ClientImport.parse(sheet)
         assertTrue(p.hadHeader)
-        assertEquals(listOf("12345-1234567-1", "12345-1234567-2"), p.rows.map { it.cnic })
+        assertEquals(listOf("12345-1234567-1", "12345-1234567-2"), p.rows.map { it.username })
         assertEquals("Abc@123", p.rows[0].password)
-        assertEquals("x y", p.rows[1].password)
+        assertEquals(" x y ", p.rows[1].password) // passwords are never changed
         assertEquals(3, p.rows[1].rowNumber)
     }
 
@@ -49,6 +49,29 @@ class ClientImportTest {
         assertEquals(3, p.problems.size)
     }
 
+    @Test fun layoutLikeOwnersFile() {
+        // Same columns as the owner's sheet; values invented.
+        val p = ClientImport.parse(
+            listOf(
+                listOf("username", "password", "NTN", "Name", "Business Name", "Cell No", "Address"),
+                listOf("1234512345671", "Test@123", "1234567", "Test Person", "", "00923001234567", "House 1, Street 2, Peshawar"),
+                listOf("1234567", "Co@2024", "1234567", "", "Test Traders (AOP)", "00923211234567", ""),
+                listOf("A123456", "Pw@1", "A123456", "Test Pvt Ltd", "Test Pvt Ltd", "", ""),
+                listOf("123456", "x", "", "", "", "", ""),
+            ),
+        )
+        assertEquals(listOf("12345-1234567-1", "1234567", "A123456"), p.rows.map { it.username })
+        assertEquals("0300-1234567", p.rows[0].mobile)
+        assertEquals("0321-1234567", p.rows[1].mobile)
+        assertEquals("House 1, Street 2, Peshawar", p.rows[0].address)
+        assertEquals("Test Traders (AOP)", p.rows[1].businessName)
+        assertEquals(1, p.problems.size) // the 6-digit username
+
+        val plan = ClientImport.plan(p.rows, emptyList(), updatePasswords = true)
+        assertEquals("Test Traders (AOP)", plan.toAdd[1].name) // no name: business name used
+        assertEquals("Co@2024", plan.toAdd[1].irisPassword)
+    }
+
     @Test fun missingColumnsFail() {
         assertThrows(ClientImport.NoColumnsException::class.java) {
             ClientImport.parse(listOf(listOf("Name", "City"), listOf("A", "B")))
@@ -56,13 +79,16 @@ class ClientImportTest {
     }
 
     @Test fun headerNames() {
-        assertEquals(ClientImport.Field.CNIC, ClientImport.fieldFor("User Name"))
-        assertEquals(ClientImport.Field.CNIC, ClientImport.fieldFor("IRIS ID"))
+        assertEquals(ClientImport.Field.USERNAME, ClientImport.fieldFor("User Name"))
+        assertEquals(ClientImport.Field.USERNAME, ClientImport.fieldFor("IRIS ID"))
         assertEquals(ClientImport.Field.PASSWORD, ClientImport.fieldFor("PASSWORD"))
         assertEquals(ClientImport.Field.NAME, ClientImport.fieldFor("Client Name"))
         assertEquals(ClientImport.Field.MOBILE, ClientImport.fieldFor("Cell No."))
         assertEquals(ClientImport.Field.NTN, ClientImport.fieldFor("NTN No"))
         assertEquals(ClientImport.Field.NTN, ClientImport.fieldFor("Client NTN"))
+        assertEquals(ClientImport.Field.BUSINESS, ClientImport.fieldFor("Business Name"))
+        assertEquals(ClientImport.Field.ADDRESS, ClientImport.fieldFor("Address"))
+        assertEquals(ClientImport.Field.USERNAME, ClientImport.fieldFor("username"))
     }
 
     @Test fun planAddsUpdatesAndSkips() {

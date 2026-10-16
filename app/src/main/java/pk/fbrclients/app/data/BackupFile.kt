@@ -89,6 +89,7 @@ object BackupJson {
             .put("createdAt", createdAt)
             .put("clients", JSONArray(d.clients.map { c ->
                 JSONObject().put("id", c.id).put("cnic", c.cnic).put("irisPassword", c.irisPassword).put("name", c.name)
+                    .put("businessName", c.businessName)
                     .put("ntn", c.ntn).put("mobile", c.mobile).put("email", c.email).put("address", c.address).put("notes", c.notes)
             }))
             .put("categories", JSONArray(d.categories.map { c ->
@@ -121,7 +122,7 @@ object BackupJson {
             clients = root.getJSONArray("clients").objects().map { o ->
                 Client(
                     id = o.getLong("id"), cnic = o.getString("cnic"), irisPassword = o.getString("irisPassword"),
-                    name = o.getString("name"), ntn = o.getString("ntn"), mobile = o.getString("mobile"),
+                    name = o.getString("name"), businessName = o.optString("businessName", ""), ntn = o.getString("ntn"), mobile = o.getString("mobile"),
                     email = o.getString("email"), address = o.getString("address"), notes = o.getString("notes"),
                 )
             },

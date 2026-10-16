@@ -9,7 +9,7 @@ class BackupFileTest {
 
     private val sample = BackupData(
         clients = listOf(
-            Client(id = 1, cnic = "12345-1234567-1", irisPassword = "p@ss \"quoted\" ✓", name = "Test Client",
+            Client(id = 1, cnic = "12345-1234567-1", irisPassword = "p@ss \"quoted\" ✓", name = "Test Client", businessName = "Test Traders",
                 ntn = "1234567-8", mobile = "0300-1234567", email = "t@example.pk", address = "Line 1\nLine 2", notes = ""),
         ),
         categories = listOf(

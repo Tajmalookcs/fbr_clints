@@ -22,6 +22,7 @@ interface ClientDao {
         """
         SELECT * FROM client
         WHERE name LIKE '%' || :text || '%'
+           OR businessName LIKE '%' || :text || '%'
            OR cnic LIKE '%' || :text || '%'
            OR ntn LIKE '%' || :text || '%'
            OR mobile LIKE '%' || :text || '%'

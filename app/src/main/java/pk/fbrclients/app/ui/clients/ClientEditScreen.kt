@@ -52,7 +52,9 @@ class ClientEditViewModel(private val dao: ClientDao, private val id: Long?) : V
     private var original: Client? = null
 
     var name by mutableStateOf("")
-    var cnicDigits by mutableStateOf("")
+    var businessName by mutableStateOf("")
+    /** Letters and digits only (dashes are shown, not stored here). */
+    var username by mutableStateOf("")
     var password by mutableStateOf("")
     var ntn by mutableStateOf("")
     var mobileDigits by mutableStateOf("")
@@ -61,7 +63,7 @@ class ClientEditViewModel(private val dao: ClientDao, private val id: Long?) : V
     var notes by mutableStateOf("")
 
     var nameError by mutableStateOf<String?>(null)
-    var cnicError by mutableStateOf<String?>(null)
+    var usernameError by mutableStateOf<String?>(null)
     var mobileError by mutableStateOf<String?>(null)
     var emailError by mutableStateOf<String?>(null)
     var saving by mutableStateOf(false)
@@ -74,7 +76,8 @@ class ClientEditViewModel(private val dao: ClientDao, private val id: Long?) : V
             dao.get(id)?.let { c ->
                 original = c
                 name = c.name
-                cnicDigits = Formats.digitsOnly(c.cnic)
+                businessName = c.businessName
+                username = c.cnic.filter { it.isLetterOrDigit() }
                 password = c.irisPassword
                 ntn = c.ntn
                 mobileDigits = Formats.digitsOnly(c.mobile)
@@ -89,17 +92,18 @@ class ClientEditViewModel(private val dao: ClientDao, private val id: Long?) : V
     fun save(onSaved: (Long) -> Unit) {
         if (saving) return
         nameError = if (name.isBlank()) "Name is required" else null
-        cnicError = if (!Formats.isValidCnic(cnicDigits)) "Enter all 13 digits" else null
+        val normalized = Formats.normalizeUsername(username)
+        usernameError = if (normalized == null) "Enter a 13-digit CNIC, or a 7-character NTN for a company / AOP" else null
         mobileError = if (mobileDigits.isNotEmpty() && !Formats.isValidMobile(mobileDigits)) "Use 03XX-XXXXXXX" else null
         emailError = if (email.isNotBlank() && !Formats.isValidEmail(email)) "Not a valid email" else null
-        if (listOf(nameError, cnicError, mobileError, emailError).any { it != null }) return
+        if (listOf(nameError, usernameError, mobileError, emailError).any { it != null }) return
 
         saving = true
         viewModelScope.launch {
-            val cnic = Formats.formatCnic(cnicDigits)
+            val cnic = normalized!!
             val other = dao.idForCnic(cnic)
             if (other != null && other != id) {
-                cnicError = "Another client already has this CNIC"
+                usernameError = "Another client already has this username"
                 saving = false
                 return@launch
             }
@@ -108,6 +112,7 @@ class ClientEditViewModel(private val dao: ClientDao, private val id: Long?) : V
                 cnic = cnic,
                 irisPassword = password,
                 name = name.trim(),
+                businessName = businessName.trim(),
                 ntn = ntn.trim(),
                 mobile = if (mobileDigits.isEmpty()) "" else Formats.formatMobile(mobileDigits),
                 email = email.trim(),
@@ -165,12 +170,17 @@ fun ClientEditScreen(
                 keyboard = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
             )
             FormField(
-                "CNIC * (IRIS username)", vm.cnicDigits,
-                { vm.cnicDigits = Formats.digitsOnly(it).take(Formats.CNIC_DIGITS); vm.cnicError = null },
-                vm.cnicError,
-                supporting = "12345-1234567-1",
-                keyboard = KeyboardOptions(keyboardType = KeyboardType.Number),
-                transform = DashTransformation(Formats.CNIC_DASHES),
+                "Business Name", vm.businessName, { vm.businessName = it }, null,
+                keyboard = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+            )
+            FormField(
+                "IRIS username * (CNIC or NTN)", vm.username,
+                { v -> vm.username = v.filter { it.isLetterOrDigit() }.uppercase().take(Formats.CNIC_DIGITS); vm.usernameError = null },
+                vm.usernameError,
+                supporting = "CNIC 12345-1234567-1 · NTN 1234567 for companies / AOPs",
+                keyboard = KeyboardOptions(keyboardType = KeyboardType.Ascii, capitalization = KeyboardCapitalization.Characters, autoCorrectEnabled = false),
+                // All digits and longer than an NTN: show CNIC dashes as you type.
+                transform = if (vm.username.length > 7 && vm.username.all { it.isDigit() }) DashTransformation(Formats.CNIC_DASHES) else VisualTransformation.None,
             )
             OutlinedTextField(
                 value = vm.password,
