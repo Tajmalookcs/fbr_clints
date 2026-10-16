@@ -5,6 +5,7 @@ Status: **Design approved by the owner on 2026-10-16. All build-plan steps imple
 Small additions made during the build (not in the original design):
 - Clients and Wealth Statements can be deleted (with a confirmation).
 - In the property form, a missing sub-type can be added straight from the sub-type list.
+- Username may be an NTN for companies / AOPs; Business Name field added (owner, 2026-10-16).
 - Import clients from Excel / CSV (owner request, 2026-10-16). Clients without a name get their CNIC as the name until edited.
 - Wrong PINs: after 5 tries the keypad pauses (30 s, doubling each further try).
 
@@ -39,18 +40,19 @@ An offline Android app for one tax practitioner. It keeps clients' IRIS login de
 
 | Field | Notes |
 |---|---|
-| CNIC* | IRIS username; format `12345-1234567-1` |
+| IRIS username* | CNIC `12345-1234567-1` for individuals, or NTN (`1234567` / `A123456`) for companies and AOPs |
 | IRIS Password | Encrypted; hidden by default |
 | Name* | |
+| Business Name | Optional; shown on the client page and searchable |
 | NTN | |
 | Mobile | Format `03XX-XXXXXXX` |
 | Email | Checked for a valid format |
 | Address | |
 | Notes | Free text |
 
-Client screen buttons: **Call, WhatsApp, SMS, Email, Copy CNIC, Copy Password, Open IRIS** (iris.fbr.gov.pk).
+Client screen buttons: **Call, WhatsApp, SMS, Email, Copy Username, Copy Password, Open IRIS** (iris.fbr.gov.pk).
 
-Client list: search by name, CNIC, NTN or mobile.
+Client list: search by name, business name, CNIC, NTN or mobile.
 
 ## 4. Wealth Statement (one per client per tax year)
 
@@ -138,7 +140,7 @@ Items may have **amount 0** (e.g. inherited or dowry items).
 
 ## 5. Data model (Room)
 
-- **Client**: id, cnic, irisPassword, name, ntn, mobile, email, address, notes
+- **Client**: id, cnic (IRIS username: CNIC or NTN), irisPassword, name, businessName, ntn, mobile, email, address, notes
 - **WealthStatement**: id, clientId, taxYear, prevYearNetAssets, incomeNormal (7031), incomeExempt (7032), incomeFinal (7033), personalExpenses (7087)
 - **Category**: code, name, group, kind (asset / liability), isProperty, sortOrder, editable
 - **PropertySubType**: id, propertyCategoryCode, name
