@@ -1,5 +1,6 @@
 package pk.fbrclients.app.ui.lock
 
+import androidx.activity.compose.BackHandler
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK
 import androidx.biometric.BiometricPrompt
@@ -54,6 +55,9 @@ fun LockScreen(activity: FragmentActivity, pinStore: PinStore, onUnlocked: () ->
                 .build(),
         )
     }
+
+    // Back on the lock screen leaves the app instead of reaching the screen behind it.
+    BackHandler { activity.moveTaskToBack(true) }
 
     // Offer fingerprint straight away when the lock screen appears.
     LaunchedEffect(Unit) { if (canUseBiometric) showFingerprint() }

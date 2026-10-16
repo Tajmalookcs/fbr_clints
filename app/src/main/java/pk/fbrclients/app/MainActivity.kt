@@ -4,13 +4,16 @@ import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import pk.fbrclients.app.ui.home.HomeScreen
+import pk.fbrclients.app.ui.AppNav
 import pk.fbrclients.app.ui.lock.LockScreen
 import pk.fbrclients.app.ui.lock.SetupPinScreen
 import pk.fbrclients.app.ui.theme.FbrTheme
@@ -32,21 +35,27 @@ class MainActivity : FragmentActivity() {
             FbrTheme {
                 val locked by appLock.locked.collectAsStateWithLifecycle()
                 var hasPin by remember { mutableStateOf(pinStore.hasPin) }
+                // Nothing (not even the database) opens until the first unlock.
+                var unlockedOnce by remember { mutableStateOf(false) }
+                if (!locked) unlockedOnce = true
 
-                when {
-                    !hasPin -> SetupPinScreen(
+                if (!hasPin) {
+                    SetupPinScreen(
                         pinStore = pinStore,
                         onDone = {
                             hasPin = true
                             appLock.unlock()
                         },
                     )
-                    locked -> LockScreen(
-                        activity = this,
-                        pinStore = pinStore,
-                        onUnlocked = appLock::unlock,
-                    )
-                    else -> HomeScreen(onLock = appLock::lockNow)
+                } else {
+                    // The lock screen sits on top, so you return to the same
+                    // screen after unlocking.
+                    Box(Modifier.fillMaxSize()) {
+                        if (unlockedOnce) AppNav(app)
+                        if (locked) {
+                            LockScreen(activity = this@MainActivity, pinStore = pinStore, onUnlocked = appLock::unlock)
+                        }
+                    }
                 }
             }
         }

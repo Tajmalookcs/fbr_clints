@@ -3,7 +3,7 @@
 An offline, encrypted Android app for a tax practitioner. It keeps clients' IRIS logins and contact details, and a yearly Wealth Statement in the FBR IRIS format.
 
 - Design: [docs/DESIGN.md](docs/DESIGN.md)
-- Status: **Step 1 done** — project setup, APK build, lock screen (PIN + fingerprint, auto-lock, no screenshots).
+- Status: **Step 2 done** — lock screen, encrypted client database, client list + search, client page with Call / WhatsApp / SMS / Email / Copy / Open IRIS, add / edit / delete.
 
 ## Install on your phone
 
