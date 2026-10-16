@@ -21,7 +21,8 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = buildNumber
-        versionName = "0.1.$buildNumber"
+        // Release builds (tag v1.0.0) pass VERSION_NAME=1.0.0; others are 0.1.<run>.
+        versionName = System.getenv("VERSION_NAME") ?: "0.1.$buildNumber"
 
     }
 
@@ -89,4 +90,6 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)
+    // Real org.json for JVM unit tests (Android's copy is only a stub there).
+    testImplementation(libs.orgjson)
 }

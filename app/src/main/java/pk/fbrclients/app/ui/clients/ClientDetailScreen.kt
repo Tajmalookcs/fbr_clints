@@ -14,11 +14,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -31,30 +35,44 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pk.fbrclients.app.data.Client
 import pk.fbrclients.app.data.ClientDao
+import pk.fbrclients.app.data.WealthDao
+import pk.fbrclients.app.data.WealthMath
+import kotlinx.coroutines.launch
+import java.time.LocalDate
+import pk.fbrclients.app.util.Formats
 import pk.fbrclients.app.util.Actions
 import pk.fbrclients.app.util.SecureClipboard
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun ClientDetailScreen(
     id: Long,
     dao: ClientDao,
+    wealth: WealthDao,
     clipboard: SecureClipboard,
     onBack: () -> Unit,
     onEdit: () -> Unit,
+    onOpenStatement: (Long) -> Unit,
 ) {
     val flow = remember(id) { dao.byId(id) }
     val client by flow.collectAsStateWithLifecycle(initialValue = null)
+    val statementsFlow = remember(id) { wealth.summaries(id) }
+    val statements by statementsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+    var newYear by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
     var showPassword by remember { mutableStateOf(false) }
 
@@ -103,15 +121,94 @@ fun ClientDetailScreen(
                 }
             }
 
-            Text("Wealth Statements", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "Coming in the next update.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Wealth Statements", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                FilledTonalButton(onClick = { newYear = true }) {
+                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.padding(end = 6.dp))
+                    Text("New tax year")
+                }
+            }
+            if (statements.isEmpty()) {
+                Text(
+                    "No Wealth Statement yet.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            statements.forEach { s ->
+                Card(onClick = { onOpenStatement(s.statement.id) }, modifier = Modifier.fillMaxWidth()) {
+                    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Tax Year ${s.statement.taxYear}", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("Net assets", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Rs " + Formats.amount(s.netAssets), fontFamily = FontFamily.Monospace)
+                        }
+                    }
+                }
+            }
             Spacer(Modifier.height(24.dp))
         }
     }
+
+    if (newYear) {
+        NewYearDialog(
+            existingYears = statements.map { it.statement.taxYear },
+            onDismiss = { newYear = false },
+            onCreate = { year, copyFrom ->
+                newYear = false
+                scope.launch {
+                    val fromId = copyFrom?.let { y -> statements.firstOrNull { it.statement.taxYear == y }?.statement?.id }
+                    onOpenStatement(wealth.createYear(id, year, fromId))
+                }
+            },
+        )
+    }
+}
+
+/** Pick a tax year; by default copy all items from the latest earlier year. */
+@Composable
+private fun NewYearDialog(existingYears: List<Int>, onDismiss: () -> Unit, onCreate: (year: Int, copyFrom: Int?) -> Unit) {
+    val suggested = remember(existingYears) {
+        val now = LocalDate.now()
+        val current = WealthMath.currentTaxYear(now.year, now.monthValue)
+        if (current !in existingYears) current else (existingYears.maxOrNull() ?: current) + 1
+    }
+    var text by remember { mutableStateOf(suggested.toString()) }
+    var copy by remember { mutableStateOf(true) }
+    val year = text.toIntOrNull()
+    val source = year?.let { y -> existingYears.filter { it < y }.maxOrNull() }
+    val error = when {
+        year == null || year !in 2000..2100 -> "Enter a year like 2026"
+        year in existingYears -> "Tax Year $year already exists"
+        else -> null
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("New Wealth Statement") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { v -> text = v.filter { it.isDigit() }.take(4) },
+                    label = { Text("Tax Year") },
+                    isError = error != null,
+                    supportingText = { Text(error ?: "Tax Year $year = 1 July ${(year ?: 1) - 1} – 30 June $year") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                )
+                if (source != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = copy, onCheckedChange = { copy = it })
+                        Text("Copy all items from Tax Year $source")
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onCreate(year!!, if (copy) source else null) }, enabled = error == null) { Text("Create") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable

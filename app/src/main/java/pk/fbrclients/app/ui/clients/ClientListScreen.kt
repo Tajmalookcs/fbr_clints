@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -64,6 +65,7 @@ fun ClientListScreen(
     onOpen: (Long) -> Unit,
     onAdd: () -> Unit,
     onLock: () -> Unit,
+    onSettings: () -> Unit,
 ) {
     val query by vm.query.collectAsStateWithLifecycle()
     val clients by vm.clients.collectAsStateWithLifecycle()
@@ -71,6 +73,7 @@ fun ClientListScreen(
     Scaffold(
         topBar = {
             FbrTopBar(title = "Clients") {
+                IconButton(onClick = onSettings) { Icon(Icons.Filled.Settings, contentDescription = "Settings") }
                 IconButton(onClick = onLock) { Icon(Icons.Filled.Lock, contentDescription = "Lock now") }
             }
         },

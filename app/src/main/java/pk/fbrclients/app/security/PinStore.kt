@@ -72,6 +72,11 @@ class PinStore(context: Context) {
         get() = prefs.getInt(KEY_AUTOLOCK, 60)
         set(v) = prefs.edit().putInt(KEY_AUTOLOCK, v).apply()
 
+    /** When the last backup file was saved (0 = never). */
+    var lastBackupAt: Long
+        get() = prefs.getLong(KEY_LAST_BACKUP, 0L)
+        set(v) = prefs.edit().putLong(KEY_LAST_BACKUP, v).apply()
+
     private fun ByteArray.b64() = Base64.encodeToString(this, Base64.NO_WRAP)
     private fun String.unb64() = Base64.decode(this, Base64.NO_WRAP)
 
@@ -83,5 +88,6 @@ class PinStore(context: Context) {
         const val KEY_LOCKED_UNTIL = "pin_locked_until"
         const val KEY_BIO = "biometric_enabled"
         const val KEY_AUTOLOCK = "auto_lock_seconds"
+        const val KEY_LAST_BACKUP = "last_backup_at"
     }
 }

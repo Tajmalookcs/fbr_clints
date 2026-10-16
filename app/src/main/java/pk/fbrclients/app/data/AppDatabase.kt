@@ -5,13 +5,25 @@ import android.util.Base64
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.sqlite.db.SupportSQLiteDatabase
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import pk.fbrclients.app.security.KeystoreCipher
 import java.security.SecureRandom
 
-@Database(entities = [Client::class], version = 1, exportSchema = true)
+/**
+ * Schema version 1 is the first one shipped with a stable signing key.
+ * Any later change to the tables needs a version bump AND a Migration,
+ * so that clients' data is never lost.
+ */
+@Database(
+    entities = [Client::class, Category::class, PropertySubType::class, WealthStatement::class, WealthItem::class],
+    version = 1,
+    exportSchema = true,
+)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun clients(): ClientDao
+    abstract fun wealth(): WealthDao
+    abstract fun backup(): BackupDao
 
     companion object {
         private const val FILE = "fbr_clients.db"
@@ -22,6 +34,9 @@ abstract class AppDatabase : RoomDatabase() {
             val key = DatabaseKey(context).get()
             return Room.databaseBuilder(context, AppDatabase::class.java, FILE)
                 .openHelperFactory(SupportOpenHelperFactory(key))
+                .addCallback(object : Callback() {
+                    override fun onCreate(db: SupportSQLiteDatabase) = Seed.insert(db)
+                })
                 .build()
         }
     }

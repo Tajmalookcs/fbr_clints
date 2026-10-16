@@ -13,6 +13,7 @@ room = "2.6.1"
 sqlcipher = "4.6.1"
 sqlite = "2.4.0"
 navigation = "2.8.5"
+orgjson = "20240303"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -34,6 +35,7 @@ androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = 
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 androidx-sqlite-ktx = { group = "androidx.sqlite", name = "sqlite-ktx", version.ref = "sqlite" }
 sqlcipher-android = { group = "net.zetetic", name = "sqlcipher-android", version.ref = "sqlcipher" }
+orgjson = { group = "org.json", name = "json", version.ref = "orgjson" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 
 [plugins]
