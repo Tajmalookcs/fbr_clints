@@ -36,7 +36,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Unit tests
-        run: ./gradlew --no-daemon testDebugUnitTest
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon testDebugUnitTest 2>&1 | tee "$RUNNER_TEMP/test.log" || { scripts/report_errors.sh "$RUNNER_TEMP/test.log"; exit 1; }
 
       # The signing key is rebuilt from one GitHub Secret (SIGNING_SEED).
       # Nothing secret is stored in the repo. See scripts/derive_keystore.py.
@@ -66,7 +68,9 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Build release APK
-        run: ./gradlew --no-daemon assembleRelease
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon assembleRelease 2>&1 | tee "$RUNNER_TEMP/build.log" || { scripts/report_errors.sh "$RUNNER_TEMP/build.log"; exit 1; }
 
       - name: Name the APK
         run: |
