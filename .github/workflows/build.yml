@@ -3,7 +3,6 @@ name: Build APK
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
@@ -19,14 +18,28 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       BUILD_NUMBER: ${{ github.run_number }}
-      IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') }}
     steps:
       - uses: actions/checkout@v5
 
+      # version.txt holds the release version (e.g. 1.0.0). A signed build on
+      # main publishes release v<version> once; every other build is a test
+      # build named <version>-build<N>. To release again, bump version.txt.
       - name: Version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HAS_SEED: ${{ secrets.SIGNING_SEED != '' }}
         run: |
-          if [ "$IS_RELEASE" = "true" ]; then V="${GITHUB_REF_NAME#v}"; else V="0.1.${BUILD_NUMBER}"; fi
-          echo "VERSION_NAME=$V" >> "$GITHUB_ENV"
+          V=$(tr -d ' \r\n' < version.txt)
+          IS_RELEASE=false
+          if [ "$GITHUB_REF" = "refs/heads/main" ] && [ "$GITHUB_EVENT_NAME" != "pull_request" ] \
+             && [ "$HAS_SEED" = "true" ] && ! gh release view "v$V" >/dev/null 2>&1; then
+            IS_RELEASE=true
+          fi
+          if [ "$IS_RELEASE" = "true" ]; then VN="$V"; else VN="$V-build${BUILD_NUMBER}"; fi
+          echo "RELEASE_VERSION=$V" >> "$GITHUB_ENV"
+          echo "IS_RELEASE=$IS_RELEASE" >> "$GITHUB_ENV"
+          echo "VERSION_NAME=$VN" >> "$GITHUB_ENV"
+          echo "Version $VN (release: $IS_RELEASE)"
 
       - uses: actions/setup-java@v5
         with:
@@ -106,14 +119,14 @@ jobs:
           # Fail loudly if the release did not end up public.
           test "$(gh release view latest-build --json isDraft --jq .isDraft)" = "false"
 
-      # Tag v1.0.0 (etc.) -> a permanent, signed release.
+      # First signed build of a new version.txt -> a permanent release.
       - name: Publish release
-        if: env.IS_RELEASE == 'true'
+        if: env.IS_RELEASE == 'true' && env.SIGNED == 'yes'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" out/*.apk \
-            --verify-tag \
+          gh release create "v${RELEASE_VERSION}" out/*.apk \
+            --target "$GITHUB_SHA" \
             --latest \
             --title "FBR Clients ${VERSION_NAME}" \
             --notes "Signed release ${VERSION_NAME}. Download the .apk on your phone and open it to install. It updates any earlier signed build and keeps your data."

@@ -22,8 +22,9 @@ Android asks you to allow installs from your browser the first time.
 ## How the APK is built
 
 GitHub Actions (`.github/workflows/build.yml`) runs the tests and builds the app on every push.
-- Push to `main` → replaces the `latest-build` pre-release.
-- Push a tag like `v1.0.1` → a permanent, signed release. It refuses to build without the signing secret.
+- Every build on `main` replaces the `latest-build` pre-release (named `<version>-build<N>`).
+- `version.txt` holds the release version. The first **signed** build after it changes publishes a permanent release `v<version>`. To release again, bump `version.txt` (e.g. to `1.0.1`).
+- You can also start a build from GitHub: **Actions → Build APK → Run workflow**.
 
 Signing: the release key is rebuilt on each run from one GitHub Secret, `SIGNING_SEED` (see `scripts/derive_keystore.py`). The same seed always gives the same key, so every new build installs over the old one and keeps your data. **Keep a copy of the seed somewhere safe**; it's the only way to recreate the key. Without the secret, `main` builds are `-TEST` APKs that can't update other builds.
 
