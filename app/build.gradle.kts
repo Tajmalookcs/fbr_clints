@@ -92,4 +92,6 @@ dependencies {
     testImplementation(libs.junit)
     // Real org.json for JVM unit tests (Android's copy is only a stub there).
     testImplementation(libs.orgjson)
+    // Runs the database upgrade SQL on a real SQLite in unit tests.
+    testImplementation(libs.sqlite.jdbc)
 }

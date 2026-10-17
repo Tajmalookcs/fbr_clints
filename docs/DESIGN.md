@@ -6,6 +6,7 @@ Small additions made during the build (not in the original design):
 - Clients and Wealth Statements can be deleted (with a confirmation).
 - In the property form, a missing sub-type can be added straight from the sub-type list.
 - Assets / Liabilities tabs show only group headings with one Add button that opens a list of types; categories appear once they have items (owner, 2026-10-17).
+- Property land area entered in boxes with a calculated Total (owner, 2026-10-17). Database schema version 2 (upgrade from 1 keeps data).
 - 7014 items have an optional "CNIC of holder" field (owner, 2026-10-17).
 - Username may be an NTN for companies / AOPs; Business Name field added (owner, 2026-10-16).
 - Import clients from Excel / CSV (owner request, 2026-10-16). Clients without a name get their CNIC as the name until edited.
@@ -98,8 +99,7 @@ Hierarchy, matching IRIS: **Group → Category (IRIS code) → Items.**
 | Property type* | Agricultural / Commercial / Industrial / Residential |
 | Property sub-type* | Dropdown that depends on the type |
 | Date of Acquisition | Date |
-| Land area unit* | Acre / Kanal / Marla / Square Foot / Square Meter |
-| Land area* | Decimal number (e.g. 1.38) |
+| Land area* | Boxes: Acre, Kanal, Marla, Sarsahi, Sft, Sq m (fill any; at least one). **Total** = biggest filled unit in order Acre → Kanal → Marla → Sft (Sarsahi and Sq m count as Sft), rounded to 2 decimals. 1 Acre = 8 Kanal, 1 Kanal = 20 Marla, 1 Marla = 9 Sarsahi = 272 Sft, 1 Sq m = 10.7639 Sft. Example: 1 Acre 2 Kanal 200 Sft → 1.25 Acre; 4 Marla 118 Sft → 4.43 Marla |
 | Property Address* | Free text: plot/house/shop number, mohalla, city, **share** (e.g. "1/2 share"), and any remarks |
 | Acquisition cost/value | Amount; counts toward totals |
 
@@ -110,7 +110,7 @@ Known sub-types:
 - Agricultural / Commercial / Industrial: unknown; the user adds them in Settings
 
 Automatic IRIS-style description, with a copy button:
-`[Type] – [Sub-type], [Area] [Unit], [Property Address]`
+`[Type] – [Sub-type], [Total area] [Unit], [Property Address]` (only the Total, not each box)
 
 Items may have **amount 0** (e.g. inherited or dowry items).
 
@@ -146,7 +146,7 @@ Items may have **amount 0** (e.g. inherited or dowry items).
 - **WealthStatement**: id, clientId, taxYear, prevYearNetAssets, incomeNormal (7031), incomeExempt (7032), incomeFinal (7033), personalExpenses (7087)
 - **Category**: code, name, group, kind (asset / liability), isProperty, sortOrder, editable
 - **PropertySubType**: id, propertyCategoryCode, name
-- **WealthItem**: id, statementId, categoryCode, description, amount, plus property-only fields: subType, acquisitionDate, areaUnit, area, propertyAddress, holderCnic (7014 only)
+- **WealthItem**: id, statementId, categoryCode, description, amount, plus property-only fields: subType, acquisitionDate, areaUnit, area + areaUnit (calculated Total), areaAcre, areaKanal, areaMarla, areaSarsahi, areaSft, areaSqm, propertyAddress, holderCnic (7014 only)
 
 ## 6. Screens
 

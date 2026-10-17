@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -43,7 +44,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import pk.fbrclients.app.data.AreaUnits
+import pk.fbrclients.app.data.LandArea
 import pk.fbrclients.app.data.Category
 import pk.fbrclients.app.data.PropertySubType
 import pk.fbrclients.app.data.WealthDao
@@ -83,8 +84,13 @@ class ItemEditViewModel(
     // Property form
     var subType by mutableStateOf<String?>(null)
     var acquisitionDate by mutableStateOf<String?>(null)
-    var areaUnit by mutableStateOf<String?>(null)
-    var area by mutableStateOf("")
+    // Land area boxes (text as typed); the Total is calculated from them.
+    var areaAcre by mutableStateOf("")
+    var areaKanal by mutableStateOf("")
+    var areaMarla by mutableStateOf("")
+    var areaSarsahi by mutableStateOf("")
+    var areaSft by mutableStateOf("")
+    var areaSqm by mutableStateOf("")
     var address by mutableStateOf("")
     /** 7014 only; digits, shown with dashes. */
     var holderCnic by mutableStateOf("")
@@ -105,14 +111,26 @@ class ItemEditViewModel(
                 amount = Formats.amountInput(it.amount)
                 subType = it.subType
                 acquisitionDate = it.acquisitionDate
-                areaUnit = it.areaUnit
-                area = it.area.orEmpty()
+                areaAcre = it.areaAcre.orEmpty()
+                areaKanal = it.areaKanal.orEmpty()
+                areaMarla = it.areaMarla.orEmpty()
+                areaSarsahi = it.areaSarsahi.orEmpty()
+                areaSft = it.areaSft.orEmpty()
+                areaSqm = it.areaSqm.orEmpty()
                 address = it.propertyAddress.orEmpty()
                 holderCnic = Formats.digitsOnly(it.holderCnic.orEmpty())
             }
             loaded = true
         }
     }
+
+    fun areaParts() = LandArea.Parts(areaAcre, areaKanal, areaMarla, areaSarsahi, areaSft, areaSqm)
+
+    fun areaTotal(): LandArea.Total? = LandArea.total(areaParts())
+
+    /** A box's text to save: null when empty or 0, or not a property. */
+    private fun box(c: Category, v: String): String? =
+        if (!c.isProperty) null else LandArea.parse(v)?.takeIf { it.signum() > 0 }?.let { v.trim().trimEnd('.') }
 
     fun clearError(key: String) {
         errors = errors - key
@@ -139,7 +157,7 @@ class ItemEditViewModel(
 
     /** The IRIS-style description for the property form. */
     fun generatedDescription(): String = propertyDescription(
-        category?.propertyType.orEmpty(), subType.orEmpty(), area, areaUnit.orEmpty(), address,
+        category?.propertyType.orEmpty(), subType.orEmpty(), areaTotal()?.value.orEmpty(), areaTotal()?.unit.orEmpty(), address,
     )
 
     fun save(onDone: () -> Unit) {
@@ -147,8 +165,7 @@ class ItemEditViewModel(
         val e = mutableMapOf<String, String>()
         if (c.isProperty) {
             if (subType.isNullOrBlank()) e["subType"] = "Choose a sub-type"
-            if (areaUnit == null) e["unit"] = "Choose a unit"
-            if (!Formats.isValidArea(area)) e["area"] = "A number, e.g. 1.38"
+            if (areaTotal() == null) e["area"] = "Enter the area in at least one box"
             if (address.isBlank()) e["address"] = "Property address is required"
         } else if (description.isBlank()) {
             e["description"] = "Description is required"
@@ -159,6 +176,7 @@ class ItemEditViewModel(
         errors = e
         if (e.isNotEmpty()) return
 
+        val total = areaTotal()
         val item = WealthItem(
             id = itemId ?: 0,
             statementId = statementId,
@@ -167,8 +185,10 @@ class ItemEditViewModel(
             amount = Formats.parseAmount(amount),
             subType = if (c.isProperty) subType else null,
             acquisitionDate = if (c.isProperty) acquisitionDate else null,
-            areaUnit = if (c.isProperty) areaUnit else null,
-            area = if (c.isProperty) area.trim() else null,
+            areaUnit = if (c.isProperty) total?.unit else null,
+            area = if (c.isProperty) total?.value else null,
+            areaAcre = box(c, areaAcre), areaKanal = box(c, areaKanal), areaMarla = box(c, areaMarla),
+            areaSarsahi = box(c, areaSarsahi), areaSft = box(c, areaSft), areaSqm = box(c, areaSqm),
             propertyAddress = if (c.isProperty) address.trim() else null,
             holderCnic = if (c.isHeldByOthers && holderCnic.isNotEmpty()) Formats.formatCnic(holderCnic) else null,
         )
@@ -259,27 +279,7 @@ fun ItemEditScreen(vm: ItemEditViewModel, clipboard: SecureClipboard, onBack: ()
                     },
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(
-                        value = vm.area,
-                        onValueChange = { v -> vm.area = v.filter { it.isDigit() || it == '.' }.take(14) },
-                        label = { Text("Land area *") },
-                        isError = vm.errors["area"] != null,
-                        supportingText = vm.errors["area"]?.let { { Text(it) } },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Dropdown(
-                        label = "Unit *",
-                        options = AreaUnits.ALL,
-                        selected = vm.areaUnit,
-                        optionLabel = { it },
-                        onSelect = { vm.areaUnit = it },
-                        error = vm.errors["unit"],
-                        modifier = Modifier.weight(1.2f),
-                    )
-                }
+                AreaBoxes(vm)
                 OutlinedTextField(
                     value = vm.address,
                     onValueChange = { vm.address = it },
@@ -381,4 +381,50 @@ fun ItemEditScreen(vm: ItemEditViewModel, clipboard: SecureClipboard, onBack: ()
             onConfirm = { confirmDelete = false; vm.delete(onDone) },
         )
     }
+}
+
+/**
+ * | Acre    | Kanal | Marla |
+ * | Sarsahi | Sft   | Sq m  |
+ * Total (biggest unit that has a value; 2 decimals)
+ */
+@Composable
+private fun AreaBoxes(vm: ItemEditViewModel) {
+    val error = vm.errors["area"]
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Land area *", style = MaterialTheme.typography.labelLarge)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AreaBox("Acre", vm.areaAcre, { vm.areaAcre = it; vm.clearError("area") }, Modifier.weight(1f))
+            AreaBox("Kanal", vm.areaKanal, { vm.areaKanal = it; vm.clearError("area") }, Modifier.weight(1f))
+            AreaBox("Marla", vm.areaMarla, { vm.areaMarla = it; vm.clearError("area") }, Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AreaBox("Sarsahi", vm.areaSarsahi, { vm.areaSarsahi = it; vm.clearError("area") }, Modifier.weight(1f))
+            AreaBox("Sft", vm.areaSft, { vm.areaSft = it; vm.clearError("area") }, Modifier.weight(1f))
+            AreaBox("Sq m", vm.areaSqm, { vm.areaSqm = it; vm.clearError("area") }, Modifier.weight(1f))
+        }
+        Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Total", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                Text(vm.areaTotal()?.toString() ?: "—", style = MaterialTheme.typography.titleMedium)
+            }
+        }
+        Text(
+            error ?: "1 Acre = 8 Kanal · 1 Kanal = 20 Marla · 1 Marla = 9 Sarsahi = 272 Sft",
+            style = MaterialTheme.typography.bodySmall,
+            color = if (error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun AreaBox(label: String, value: String, onChange: (String) -> Unit, modifier: Modifier) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = { v -> if (LandArea.isTypable(v)) onChange(v) },
+        label = { Text(label) },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        singleLine = true,
+        modifier = modifier,
+    )
 }

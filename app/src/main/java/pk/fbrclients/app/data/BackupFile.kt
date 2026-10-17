@@ -112,6 +112,9 @@ object BackupJson {
                     .put("areaUnit", i.areaUnit ?: JSONObject.NULL).put("area", i.area ?: JSONObject.NULL)
                     .put("propertyAddress", i.propertyAddress ?: JSONObject.NULL)
                     .put("holderCnic", i.holderCnic ?: JSONObject.NULL)
+                    .put("areaAcre", i.areaAcre ?: JSONObject.NULL).put("areaKanal", i.areaKanal ?: JSONObject.NULL)
+                    .put("areaMarla", i.areaMarla ?: JSONObject.NULL).put("areaSarsahi", i.areaSarsahi ?: JSONObject.NULL)
+                    .put("areaSft", i.areaSft ?: JSONObject.NULL).put("areaSqm", i.areaSqm ?: JSONObject.NULL)
             }))
         return root.toString().toByteArray(Charsets.UTF_8)
     }
@@ -151,7 +154,9 @@ object BackupJson {
                     description = o.getString("description"), amount = o.getLong("amount"),
                     subType = o.str("subType"), acquisitionDate = o.str("acquisitionDate"), areaUnit = o.str("areaUnit"),
                     area = o.str("area"), propertyAddress = o.str("propertyAddress"),
-                    holderCnic = if (o.has("holderCnic")) o.str("holderCnic") else null,
+                    holderCnic = o.optText("holderCnic"),
+                    areaAcre = o.optText("areaAcre"), areaKanal = o.optText("areaKanal"), areaMarla = o.optText("areaMarla"),
+                    areaSarsahi = o.optText("areaSarsahi"), areaSft = o.optText("areaSft"), areaSqm = o.optText("areaSqm"),
                 )
             },
         )
@@ -159,4 +164,7 @@ object BackupJson {
 
     private fun JSONArray.objects(): List<JSONObject> = (0 until length()).map { getJSONObject(it) }
     private fun JSONObject.str(k: String): String? = if (isNull(k)) null else getString(k)
+
+    /** Optional field (older backups may not have it). */
+    private fun JSONObject.optText(k: String): String? = if (!has(k) || isNull(k)) null else getString(k)
 }

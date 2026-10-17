@@ -32,7 +32,7 @@ Signing: the release key is rebuilt on each run from one GitHub Secret, `SIGNING
 ## For developers
 
 - Kotlin, Jetpack Compose, Room + SQLCipher, min Android 8.0.
-- Database schema is **version 1**. Any table change needs a version bump **and** a `Migration`, or clients' data will be lost on update.
+- Database schema is **version 2** (see `data/Migrations.kt`). Any table change needs a version bump **and** a migration step, or clients' data will be lost on update.
 - Unit tests cover PIN hashing, lockout, input formats, Wealth Statement maths and the backup file.
 
 > This repository contains code only. No client data is ever stored here.

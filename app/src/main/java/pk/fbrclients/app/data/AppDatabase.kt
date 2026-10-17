@@ -17,7 +17,7 @@ import java.security.SecureRandom
  */
 @Database(
     entities = [Client::class, Category::class, PropertySubType::class, WealthStatement::class, WealthItem::class],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -34,6 +34,7 @@ abstract class AppDatabase : RoomDatabase() {
             val key = DatabaseKey(context).get()
             return Room.databaseBuilder(context, AppDatabase::class.java, FILE)
                 .openHelperFactory(SupportOpenHelperFactory(key))
+                .addMigrations(*Migrations.ALL)
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) = Seed.insert(db)
                 })

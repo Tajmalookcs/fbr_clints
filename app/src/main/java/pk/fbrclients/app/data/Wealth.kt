@@ -94,9 +94,17 @@ data class WealthItem(
     val subType: String? = null,
     /** yyyy-MM-dd */
     val acquisitionDate: String? = null,
+    /** Total unit: Acre / Kanal / Marla / Sft (calculated from the boxes below). */
     val areaUnit: String? = null,
-    /** Kept as text so "1.38" stays exactly 1.38. */
+    /** Total value, e.g. "1.25" (calculated; text so it stays exact). */
     val area: String? = null,
+    // The boxes as typed (text, so "1.38" stays exactly 1.38). See LandArea.
+    val areaAcre: String? = null,
+    val areaKanal: String? = null,
+    val areaMarla: String? = null,
+    val areaSarsahi: String? = null,
+    val areaSft: String? = null,
+    val areaSqm: String? = null,
     val propertyAddress: String? = null,
     /** 7014 only: CNIC of the person the asset is held by (12345-1234567-1). */
     val holderCnic: String? = null,
@@ -107,10 +115,6 @@ data class StatementSummary(
     @Embedded val statement: WealthStatement,
     val netAssets: Long,
 )
-
-object AreaUnits {
-    val ALL = listOf("Acre", "Kanal", "Marla", "Square Foot", "Square Meter")
-}
 
 /** "[Type] – [Sub-type], [Area] [Unit], [Property Address]" */
 fun propertyDescription(type: String, subType: String, area: String, unit: String, address: String): String =

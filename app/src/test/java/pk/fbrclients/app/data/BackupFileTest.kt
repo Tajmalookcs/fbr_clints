@@ -24,7 +24,8 @@ class BackupFileTest {
         ),
         items = listOf(
             WealthItem(id = 1, statementId = 2, categoryId = 1, description = "Residential – Flat, 5 Marla, X", amount = 0,
-                subType = "Flat", acquisitionDate = "2019-03-12", areaUnit = "Marla", area = "5", propertyAddress = "X"),
+                subType = "Flat", acquisitionDate = "2019-03-12", areaUnit = "Kanal", area = "1.25", propertyAddress = "X",
+                areaKanal = "1", areaMarla = "5"),
             WealthItem(id = 2, statementId = 2, categoryId = 3, description = "Loan", amount = 250_000),
             WealthItem(id = 3, statementId = 2, categoryId = 3, description = "Plot in wife's name", amount = 0, holderCnic = "12345-1234567-2"),
         ),
