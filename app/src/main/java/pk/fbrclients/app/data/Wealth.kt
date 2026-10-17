@@ -7,6 +7,8 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
+const val HELD_BY_OTHERS_CODE = "7014"
+
 /** Groups in IRIS order. Stored by name. */
 enum class AssetGroup(val title: String, val isLiability: Boolean = false) {
     IMMOVABLE("Immovable Properties (Non-Business)"),
@@ -33,6 +35,9 @@ data class Category(
     val editable: Boolean = true,
 ) {
     val isLiability get() = group.isLiability
+
+    /** 7014: asset held in someone else's name; the item can record the holder's CNIC. */
+    val isHeldByOthers get() = code == HELD_BY_OTHERS_CODE
 
     /** "Residential Property" -> "Residential", used in the property description. */
     val propertyType get() = name.removeSuffix(" Property")
@@ -93,6 +98,8 @@ data class WealthItem(
     /** Kept as text so "1.38" stays exactly 1.38. */
     val area: String? = null,
     val propertyAddress: String? = null,
+    /** 7014 only: CNIC of the person the asset is held by (12345-1234567-1). */
+    val holderCnic: String? = null,
 )
 
 /** A statement with its net assets, for the list on the client page. */

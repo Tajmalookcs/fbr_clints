@@ -54,6 +54,7 @@ import pk.fbrclients.app.ui.components.AmountField
 import pk.fbrclients.app.ui.components.ConfirmDeleteDialog
 import pk.fbrclients.app.ui.components.Dropdown
 import pk.fbrclients.app.ui.components.TextInputDialog
+import pk.fbrclients.app.util.DashTransformation
 import pk.fbrclients.app.util.Formats
 import pk.fbrclients.app.util.SecureClipboard
 import java.time.Instant
@@ -85,6 +86,8 @@ class ItemEditViewModel(
     var areaUnit by mutableStateOf<String?>(null)
     var area by mutableStateOf("")
     var address by mutableStateOf("")
+    /** 7014 only; digits, shown with dashes. */
+    var holderCnic by mutableStateOf("")
 
     var errors by mutableStateOf<Map<String, String>>(emptyMap())
         private set
@@ -105,9 +108,14 @@ class ItemEditViewModel(
                 areaUnit = it.areaUnit
                 area = it.area.orEmpty()
                 address = it.propertyAddress.orEmpty()
+                holderCnic = Formats.digitsOnly(it.holderCnic.orEmpty())
             }
             loaded = true
         }
+    }
+
+    fun clearError(key: String) {
+        errors = errors - key
     }
 
     fun subTypesFor(c: Category?): List<PropertySubType> =
@@ -145,6 +153,9 @@ class ItemEditViewModel(
         } else if (description.isBlank()) {
             e["description"] = "Description is required"
         }
+        if (c.isHeldByOthers && holderCnic.isNotEmpty() && !Formats.isValidCnic(holderCnic)) {
+            e["holderCnic"] = "Enter all 13 digits, or leave it empty"
+        }
         errors = e
         if (e.isNotEmpty()) return
 
@@ -159,6 +170,7 @@ class ItemEditViewModel(
             areaUnit = if (c.isProperty) areaUnit else null,
             area = if (c.isProperty) area.trim() else null,
             propertyAddress = if (c.isProperty) address.trim() else null,
+            holderCnic = if (c.isHeldByOthers && holderCnic.isNotEmpty()) Formats.formatCnic(holderCnic) else null,
         )
         viewModelScope.launch {
             if (itemId == null) dao.insertItem(item) else dao.updateItem(item)
@@ -309,6 +321,24 @@ fun ItemEditScreen(vm: ItemEditViewModel, clipboard: SecureClipboard, onBack: ()
                     },
                 )
                 AmountField("Amount", vm.amount, { vm.amount = it }, supporting = "May be 0, e.g. inherited or dowry")
+                if (c.isHeldByOthers) {
+                    OutlinedTextField(
+                        value = vm.holderCnic,
+                        onValueChange = { v -> vm.holderCnic = Formats.digitsOnly(v).take(Formats.CNIC_DIGITS); vm.clearError("holderCnic") },
+                        label = { Text("CNIC of holder") },
+                        isError = vm.errors["holderCnic"] != null,
+                        supportingText = { Text(vm.errors["holderCnic"] ?: "Person the asset is held by (optional)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        visualTransformation = DashTransformation(Formats.CNIC_DASHES),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        trailingIcon = {
+                            if (Formats.isValidCnic(vm.holderCnic)) {
+                                TextButton(onClick = { clipboard.copy("CNIC", Formats.formatCnic(vm.holderCnic)) }) { Text("Copy") }
+                            }
+                        },
+                    )
+                }
             }
 
             Spacer(Modifier.height(4.dp))

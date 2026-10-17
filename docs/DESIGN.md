@@ -5,6 +5,8 @@ Status: **Design approved by the owner on 2026-10-16. All build-plan steps imple
 Small additions made during the build (not in the original design):
 - Clients and Wealth Statements can be deleted (with a confirmation).
 - In the property form, a missing sub-type can be added straight from the sub-type list.
+- Assets / Liabilities tabs show only group headings with one Add button that opens a list of types; categories appear once they have items (owner, 2026-10-17).
+- 7014 items have an optional "CNIC of holder" field (owner, 2026-10-17).
 - Username may be an NTN for companies / AOPs; Business Name field added (owner, 2026-10-16).
 - Import clients from Excel / CSV (owner request, 2026-10-16). Clients without a name get their CNIC as the name until edited.
 - Wrong PINs: after 5 tries the keypad pauses (30 s, doubling each further try).
@@ -83,7 +85,7 @@ Hierarchy, matching IRIS: **Group → Category (IRIS code) → Items.**
 
 | Code | Category |
 |---|---|
-| 7014 | Assets held in others' names (including non-filer spouse/dependents) |
+| 7014 | Assets held in others' names (including non-filer spouse/dependents); optional CNIC of holder |
 | 7013 | Any Other Asset(s) |
 | 7003 | Business Capital |
 | 700302 | Business Capital in AOPs/Companies |
@@ -144,7 +146,7 @@ Items may have **amount 0** (e.g. inherited or dowry items).
 - **WealthStatement**: id, clientId, taxYear, prevYearNetAssets, incomeNormal (7031), incomeExempt (7032), incomeFinal (7033), personalExpenses (7087)
 - **Category**: code, name, group, kind (asset / liability), isProperty, sortOrder, editable
 - **PropertySubType**: id, propertyCategoryCode, name
-- **WealthItem**: id, statementId, categoryCode, description, amount, plus property-only fields: subType, acquisitionDate, areaUnit, area, propertyAddress
+- **WealthItem**: id, statementId, categoryCode, description, amount, plus property-only fields: subType, acquisitionDate, areaUnit, area, propertyAddress, holderCnic (7014 only)
 
 ## 6. Screens
 

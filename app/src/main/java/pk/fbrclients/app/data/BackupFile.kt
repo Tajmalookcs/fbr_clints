@@ -111,6 +111,7 @@ object BackupJson {
                     .put("subType", i.subType ?: JSONObject.NULL).put("acquisitionDate", i.acquisitionDate ?: JSONObject.NULL)
                     .put("areaUnit", i.areaUnit ?: JSONObject.NULL).put("area", i.area ?: JSONObject.NULL)
                     .put("propertyAddress", i.propertyAddress ?: JSONObject.NULL)
+                    .put("holderCnic", i.holderCnic ?: JSONObject.NULL)
             }))
         return root.toString().toByteArray(Charsets.UTF_8)
     }
@@ -150,6 +151,7 @@ object BackupJson {
                     description = o.getString("description"), amount = o.getLong("amount"),
                     subType = o.str("subType"), acquisitionDate = o.str("acquisitionDate"), areaUnit = o.str("areaUnit"),
                     area = o.str("area"), propertyAddress = o.str("propertyAddress"),
+                    holderCnic = if (o.has("holderCnic")) o.str("holderCnic") else null,
                 )
             },
         )

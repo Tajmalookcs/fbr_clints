@@ -1,6 +1,9 @@
 package pk.fbrclients.app.ui.wealth
 
 import androidx.compose.foundation.clickable
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -127,30 +130,54 @@ private fun ItemsTab(
     LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
         for (g in groups) {
             val cats = ui.categories.filter { it.group == g }
-            if (groups.size > 1) {
-                item(key = "g-${g.name}") {
-                    Text(
-                        g.title,
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 4.dp),
-                    )
-                }
+            item(key = "g-${g.name}") { GroupHeader(g, cats, onAddItem) }
+            // Only categories that have items are shown under the group.
+            for (c in cats) {
+                val catItems = itemsByCat[c.id].orEmpty()
+                if (catItems.isNotEmpty()) categoryBlock(c, catItems, clipboard, onEditItem)
             }
-            if (cats.isEmpty()) {
-                item(key = "empty-${g.name}") {
-                    Text(
-                        "No categories yet. Add them in Settings → Categories.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    )
-                }
-            }
-            for (c in cats) categoryBlock(c, itemsByCat[c.id].orEmpty(), clipboard, onAddItem, onEditItem)
+            item(key = "d-${g.name}") { HorizontalDivider(Modifier.padding(top = 8.dp)) }
         }
         item(key = "total") {
             TotalRow(totalLabel, total, Modifier.padding(16.dp))
+        }
+    }
+}
+
+/** Group title with one Add button. With several types, Add opens a list to pick one. */
+@Composable
+private fun GroupHeader(g: AssetGroup, cats: List<Category>, onAddItem: (Long) -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    Row(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            g.title,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f),
+        )
+        Box {
+            TextButton(onClick = { if (cats.size == 1) onAddItem(cats[0].id) else menu = true }) {
+                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
+                Text("Add")
+            }
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                if (cats.isEmpty()) {
+                    DropdownMenuItem(
+                        text = { Text("No types yet. Add them in Settings → Categories.") },
+                        onClick = { menu = false },
+                        enabled = false,
+                    )
+                }
+                cats.forEach { c ->
+                    DropdownMenuItem(
+                        text = { Text((c.code ?: "code ?") + "  " + c.name) },
+                        onClick = { menu = false; onAddItem(c.id) },
+                    )
+                }
+            }
         }
     }
 }
@@ -159,32 +186,24 @@ private fun LazyListScope.categoryBlock(
     c: Category,
     catItems: List<WealthItem>,
     clipboard: SecureClipboard,
-    onAddItem: (Long) -> Unit,
     onEditItem: (WealthItem) -> Unit,
 ) {
     item(key = "c-${c.id}") {
         Row(
-            Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 8.dp),
+            Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    (c.code ?: "code ?") + "  " + c.name,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                if (catItems.isNotEmpty()) {
-                    Text(
-                        "Rs " + Formats.amount(catItems.sumOf { it.amount }),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            TextButton(onClick = { onAddItem(c.id) }) {
-                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
-                Text("Add")
-            }
+            Text(
+                (c.code ?: "code ?") + "  " + c.name,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                "Rs " + Formats.amount(catItems.sumOf { it.amount }),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
     items(catItems, key = { "i-${it.id}" }) { i ->
@@ -195,13 +214,22 @@ private fun LazyListScope.categoryBlock(
                 .padding(start = 28.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(i.description, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            Column(Modifier.weight(1f)) {
+                Text(i.description, style = MaterialTheme.typography.bodyMedium)
+                i.holderCnic?.let {
+                    Text(
+                        "Held by CNIC $it",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.clickable { clipboard.copy("CNIC", it) },
+                    )
+                }
+            }
             Spacer(Modifier.width(8.dp))
             Text(Formats.amount(i.amount), style = MaterialTheme.typography.bodyMedium, fontFamily = FontFamily.Monospace)
             TextButton(onClick = { clipboard.copy("Description", i.description) }) { Text("Copy") }
         }
     }
-    item(key = "d-${c.id}") { HorizontalDivider(Modifier.padding(top = 4.dp)) }
 }
 
 @Composable
