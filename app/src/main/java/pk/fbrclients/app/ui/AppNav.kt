@@ -1,5 +1,6 @@
 package pk.fbrclients.app.ui
 
+import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
@@ -8,6 +9,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import pk.fbrclients.app.FbrApp
+import pk.fbrclients.app.ui.browser.BrowserScreen
 import pk.fbrclients.app.ui.clients.ClientDetailScreen
 import pk.fbrclients.app.ui.clients.ClientEditScreen
 import pk.fbrclients.app.ui.clients.ClientEditViewModel
@@ -57,6 +59,9 @@ fun AppNav(app: FbrApp) {
                 onBack = { nav.popBackStack() },
                 onEdit = { nav.navigate("edit/$id") },
                 onOpenStatement = { nav.navigate("statement/$it") },
+                onOpenBrowser = { url, ref ->
+                    nav.navigate("browser/$id?url=${Uri.encode(url)}&ref=${Uri.encode(ref.orEmpty())}")
+                },
             )
         }
         composable("edit/{id}", arguments = longArgs("id")) { entry ->
@@ -111,6 +116,24 @@ fun AppNav(app: FbrApp) {
         }
         composable("settings/pin") {
             ChangePinScreen(app.pinStore, onDone = { nav.popBackStack() })
+        }
+        composable(
+            "browser/{clientId}?url={url}&ref={ref}",
+            arguments = listOf(
+                navArgument("clientId") { type = NavType.LongType },
+                navArgument("url") { type = NavType.StringType; defaultValue = "" },
+                navArgument("ref") { type = NavType.StringType; defaultValue = "" },
+            ),
+        ) { entry ->
+            val a = entry.arguments!!
+            BrowserScreen(
+                startUrl = a.getString("url").orEmpty(),
+                clientId = a.getLong("clientId"),
+                reference = a.getString("ref")?.takeIf { it.isNotEmpty() },
+                clients = clients,
+                electricity = db.electricity(),
+                onClose = { nav.popBackStack() },
+            )
         }
         composable("settings/discos") {
             DiscosScreen(db.electricity(), onBack = { nav.popBackStack() })

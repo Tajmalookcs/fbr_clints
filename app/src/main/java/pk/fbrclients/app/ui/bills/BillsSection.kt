@@ -41,13 +41,17 @@ import pk.fbrclients.app.data.Disco
 import pk.fbrclients.app.data.ElectricityBill
 import pk.fbrclients.app.data.ElectricityDao
 import pk.fbrclients.app.ui.components.Dropdown
-import pk.fbrclients.app.util.Actions
 import pk.fbrclients.app.util.Formats
 import pk.fbrclients.app.util.SecureClipboard
 
 /** "Electricity bills" on the client page: list, add / edit, and the bill / certificate buttons. */
 @Composable
-fun BillsSection(clientId: Long, dao: ElectricityDao, clipboard: SecureClipboard) {
+fun BillsSection(
+    clientId: Long,
+    dao: ElectricityDao,
+    clipboard: SecureClipboard,
+    onOpenInApp: (url: String, reference: String) -> Unit,
+) {
     val billsFlow = remember(clientId) { dao.bills(clientId) }
     val bills by billsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
     val discosFlow = remember { dao.discos() }
@@ -64,9 +68,8 @@ fun BillsSection(clientId: Long, dao: ElectricityDao, clipboard: SecureClipboard
             Toast.makeText(ctx, "No $what link yet. Add it in Settings → Electricity companies.", Toast.LENGTH_LONG).show()
             return
         }
-        // The sites need the reference typed in, so put it on the clipboard first.
-        clipboard.copy("Reference no.", ref)
-        Actions.openUrl(ctx, url)
+        // Opens in the app's browser, which fills in the reference number.
+        onOpenInApp(url, ref)
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

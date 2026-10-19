@@ -69,6 +69,7 @@ fun ClientDetailScreen(
     onBack: () -> Unit,
     onEdit: () -> Unit,
     onOpenStatement: (Long) -> Unit,
+    onOpenBrowser: (url: String, reference: String?) -> Unit,
 ) {
     val flow = remember(id) { dao.byId(id) }
     val client by flow.collectAsStateWithLifecycle(initialValue = null)
@@ -109,6 +110,7 @@ fun ClientDetailScreen(
                 ActionButton("Copy Password", null, c.irisPassword.isNotEmpty()) {
                     clipboard.copy("Password", c.irisPassword, sensitive = true)
                 }
+                ActionButton("IRIS in app", null, true) { onOpenBrowser(Actions.IRIS_URL, null) }
                 ActionButton("Open IRIS", null, true) { Actions.openIris(ctx) }
             }
 
@@ -125,7 +127,7 @@ fun ClientDetailScreen(
                 }
             }
 
-            BillsSection(clientId = id, dao = electricity, clipboard = clipboard)
+            BillsSection(clientId = id, dao = electricity, clipboard = clipboard, onOpenInApp = { url, ref -> onOpenBrowser(url, ref) })
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Wealth Statements", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))

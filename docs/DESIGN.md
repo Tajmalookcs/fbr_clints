@@ -6,6 +6,7 @@ Small additions made during the build (not in the original design):
 - Clients and Wealth Statements can be deleted (with a confirmation).
 - In the property form, a missing sub-type can be added straight from the sub-type list.
 - Assets / Liabilities tabs show only group headings with one Add button that opens a list of types; categories appear once they have items (owner, 2026-10-17).
+- In-app browser (owner, 2026-10-19): opens IRIS / bill / certificate pages inside the app, auto-fills empty login or reference boxes, and has Username / Password / Reference / NTN fill buttons. Never presses a page button. Only fbr.gov.pk, pitc.com.pk, fesco.com.pk and the links in Settings → Electricity companies (https only); other links open in Chrome. Cookies, storage and cache are wiped when it closes; Android autofill is blocked from saving passwords. Downloads go to Downloads; ⋮ → Save page as PDF.
 - Electricity bills per client with bill / tax-certificate links; database schema version 3 (owner, 2026-10-19).
 - Property land area entered in boxes with a calculated Total (owner, 2026-10-17). Database schema version 2 (upgrade from 1 keeps data).
 - 7014 items have an optional "CNIC of holder" field (owner, 2026-10-17).
@@ -22,7 +23,7 @@ An offline Android app for one tax practitioner. It keeps clients' IRIS login de
 | Topic | Decision |
 |---|---|
 | Users | One person, one phone |
-| Connectivity | Fully offline; no server or cloud sync |
+| Connectivity | Offline database; no server or cloud sync. Internet is used **only** by the in-app browser for IRIS and the bill / tax-certificate sites |
 | Backup | Encrypted backup file with its own password; restore on any phone |
 | Language / stack | Kotlin, Jetpack Compose, Room (encrypted with SQLCipher), BiometricPrompt |
 | Min Android | 8.0 (API 26) |

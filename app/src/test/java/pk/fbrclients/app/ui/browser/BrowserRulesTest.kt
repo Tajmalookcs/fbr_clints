@@ -1,0 +1,38 @@
+package pk.fbrclients.app.ui.browser
+
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class BrowserRulesTest {
+    private val links = listOf("https://bill.pitc.com.pk/fescobill", "https://www.ke.com.pk/bill", "")
+
+    @Test fun allowedSites() {
+        assertTrue(BrowserRules.isAllowed("https://iris.fbr.gov.pk/login", links))
+        assertTrue(BrowserRules.isAllowed("https://e.fbr.gov.pk/x", links))
+        assertTrue(BrowserRules.isAllowed("https://bill.pitc.com.pk/pescobill", links))
+        assertTrue(BrowserRules.isAllowed("https://mis.fesco.com.pk/fescoweb/old.fesco.com.pk/NewTaxStatement/TaxStatement.aspx", links))
+        assertTrue(BrowserRules.isAllowed("https://ke.com.pk/anything", links))
+    }
+
+    @Test fun otherSitesOpenOutside() {
+        assertFalse(BrowserRules.isAllowed("https://evil.com/iris.fbr.gov.pk", links))
+        assertFalse(BrowserRules.isAllowed("https://fbr.gov.pk.evil.com/", links))
+        assertFalse(BrowserRules.isAllowed("http://iris.fbr.gov.pk/", links)) // not https
+        assertFalse(BrowserRules.isAllowed("javascript:alert(1)", links))
+        assertFalse(BrowserRules.isAllowed("not a url", links))
+    }
+
+    @Test fun valuesAreQuotedSafely() {
+        val js = BrowserRules.fillFocused("a'b\"c</script>\\", isPassword = true)
+        assertTrue(js.contains("\"a'b\\\"c<\\/script>\\\\\""))
+    }
+
+    @Test fun autoFillOnlyWhereUseful() {
+        assertNull(BrowserRules.autoFill("https://iris.fbr.gov.pk/", null, null, "123"))
+        assertNull(BrowserRules.autoFill("https://bill.pitc.com.pk/fescobill", "u", "p", null))
+        assertTrue(BrowserRules.autoFill("https://iris.fbr.gov.pk/", "12345-1234567-1", "pw", null)!!.contains("12345-1234567-1"))
+        assertTrue(BrowserRules.autoFill("https://bill.pitc.com.pk/fescobill", null, null, "12345678901234")!!.contains("12345678901234"))
+    }
+}
