@@ -106,7 +106,7 @@ fun ClientDetailScreen(
                 ActionButton("WhatsApp", Icons.AutoMirrored.Filled.Send, hasMobile) { Actions.whatsApp(ctx, c.mobile) }
                 ActionButton("SMS", null, hasMobile) { Actions.sms(ctx, c.mobile) }
                 ActionButton("Email", Icons.Filled.Email, c.email.isNotBlank()) { Actions.email(ctx, c.email) }
-                ActionButton("Copy Username", null, true) { clipboard.copy("Username", c.cnic) }
+                ActionButton("Copy Username", null, true) { clipboard.copy("Username", Formats.irisUsername(c.cnic)) }
                 ActionButton("Copy Password", null, c.irisPassword.isNotEmpty()) {
                     clipboard.copy("Password", c.irisPassword, sensitive = true)
                 }

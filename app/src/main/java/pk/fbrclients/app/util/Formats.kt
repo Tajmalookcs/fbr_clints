@@ -69,6 +69,9 @@ object Formats {
         return null
     }
 
+    /** IRIS wants the username without dashes: 12345-1234567-1 -> 1234512345671 (NTN unchanged). */
+    fun irisUsername(username: String): String = username.replace("-", "").trim()
+
     fun isValidCnic(digits: String) = digits.length == CNIC_DIGITS && digits.all { it in '0'..'9' }
 
     fun isValidMobile(digits: String) =

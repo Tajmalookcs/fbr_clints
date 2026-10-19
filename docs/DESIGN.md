@@ -6,7 +6,8 @@ Small additions made during the build (not in the original design):
 - Clients and Wealth Statements can be deleted (with a confirmation).
 - In the property form, a missing sub-type can be added straight from the sub-type list.
 - Assets / Liabilities tabs show only group headings with one Add button that opens a list of types; categories appear once they have items (owner, 2026-10-17).
-- App browser opens sites in **desktop mode** by default (⋮ → Desktop site to switch); screenshots allowed (owner, 2026-10-19).
+- IRIS username is filled / copied **without dashes** (1234512345671); shown with dashes in the app (owner, 2026-10-19).
+- App browser opens sites in **desktop mode** by default (desktop user agent only; the page keeps its own width so popups show) (⋮ → Desktop site to switch); screenshots allowed (owner, 2026-10-19).
 - In-app browser (owner, 2026-10-19): opens IRIS / bill / certificate pages inside the app, auto-fills empty login or reference boxes, and has Username / Password / Reference / NTN fill buttons. Never presses a page button. Only fbr.gov.pk, pitc.com.pk, fesco.com.pk and the links in Settings → Electricity companies (https only); other links open in Chrome. Cookies, storage and cache are wiped when it closes; Android autofill is blocked from saving passwords. Downloads go to Downloads; ⋮ → Save page as PDF.
 - Electricity bills per client with bill / tax-certificate links; database schema version 3 (owner, 2026-10-19).
 - Property land area entered in boxes with a calculated Total (owner, 2026-10-17). Database schema version 2 (upgrade from 1 keeps data).

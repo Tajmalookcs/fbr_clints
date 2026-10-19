@@ -39,6 +39,12 @@ class FormatsTest {
         assertNull(Formats.normalizeUsername("AB12345"))
     }
 
+    @Test fun irisUsernameHasNoDashes() {
+        assertEquals("1234512345671", Formats.irisUsername("12345-1234567-1"))
+        assertEquals("1234567", Formats.irisUsername("1234567"))
+        assertEquals("A123456", Formats.irisUsername("A123456"))
+    }
+
     @Test fun mobiles() {
         assertEquals("03001234567", Formats.normalizeMobileDigits("00923001234567"))
         assertEquals("03001234567", Formats.normalizeMobileDigits("+92 300 1234567"))

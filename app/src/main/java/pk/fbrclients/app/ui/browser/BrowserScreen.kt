@@ -61,6 +61,7 @@ import pk.fbrclients.app.data.ClientDao
 import pk.fbrclients.app.data.ElectricityDao
 import pk.fbrclients.app.ui.clients.FbrTopBar
 import pk.fbrclients.app.util.Actions
+import pk.fbrclients.app.util.Formats
 
 /**
  * In-app browser for IRIS and the bill / tax-certificate sites. Fills the client's
@@ -177,7 +178,7 @@ fun BrowserScreen(
                     ) {
                         val c = client
                         if (c != null) {
-                            FilledTonalButton(onClick = { fill(c.cnic, false, "username") }) { Text("Username") }
+                            FilledTonalButton(onClick = { fill(Formats.irisUsername(c.cnic), false, "username") }) { Text("Username") }
                             FilledTonalButton(onClick = { fill(c.irisPassword, true, "password") }) { Text("Password") }
                         }
                         if (!reference.isNullOrEmpty()) {
@@ -224,9 +225,8 @@ fun BrowserScreen(
                             override fun onPageFinished(view: WebView, url: String) {
                                 currentUrl = url
                                 title = view.title.orEmpty()
-                                if (desktop) view.evaluateJavascript(BrowserRules.DESKTOP_VIEWPORT_JS, null)
                                 val c = client
-                                BrowserRules.autoFill(url, c?.cnic, c?.irisPassword, reference)?.let { js ->
+                                BrowserRules.autoFill(url, c?.cnic?.let(Formats::irisUsername), c?.irisPassword, reference)?.let { js ->
                                     view.evaluateJavascript(js, null)
                                 }
                             }

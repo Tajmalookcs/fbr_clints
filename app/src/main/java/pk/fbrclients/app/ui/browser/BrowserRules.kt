@@ -33,13 +33,6 @@ object BrowserRules {
         return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) $chrome Safari/537.36"
     }
 
-    /** Makes pages that ask for a phone-width layout use a desktop width, like Chrome's "Desktop site". */
-    const val DESKTOP_VIEWPORT_JS = """
-        (function(){ var m=document.querySelector('meta[name="viewport"]');
-          if(!m){ m=document.createElement('meta'); m.name='viewport'; (document.head||document.documentElement).appendChild(m); }
-          if(m.getAttribute('content')!=='width=1280'){ m.setAttribute('content','width=1280'); }
-        })();
-    """
 
     /** Small helpers shared by the scripts below: visible inputs, and setting a value the page will notice. */
     private const val HELPERS = """
