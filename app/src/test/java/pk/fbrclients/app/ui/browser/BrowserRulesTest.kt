@@ -34,6 +34,14 @@ class BrowserRulesTest {
         assertFalse(d.contains("wv"))
     }
 
+    @Test fun zoomIsUnlockedInBothModes() {
+        val d = BrowserRules.viewportJs(desktop = true)
+        assertTrue(d.contains("var DESKTOP=true"))
+        assertTrue(d.contains("width=1280"))
+        assertTrue(d.contains("user-scalable=yes"))
+        assertTrue(BrowserRules.viewportJs(desktop = false).contains("var DESKTOP=false"))
+    }
+
     @Test fun valuesAreQuotedSafely() {
         val js = BrowserRules.fillFocused("a'b\"c</script>\\", isPassword = true)
         assertTrue(js.contains("\"a'b\\\"c<\\/script>\\\\\""))

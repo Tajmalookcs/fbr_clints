@@ -4,6 +4,11 @@ import android.annotation.SuppressLint
 import android.app.DownloadManager
 import android.content.Context
 import android.net.Uri
+import androidx.compose.ui.Alignment
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.key
+import androidx.compose.foundation.layout.Box
+import android.os.Message
 import android.os.Environment
 import android.print.PrintAttributes
 import android.print.PrintManager
@@ -89,11 +94,12 @@ fun BrowserScreen(
     val prefs = remember { ctx.getSharedPreferences("browser", Context.MODE_PRIVATE) }
     var desktop by remember { mutableStateOf(prefs.getBoolean("desktop_site", true)) }
     val mobileUa = remember { WebSettings.getDefaultUserAgent(ctx) }
-
-    fun applyMode(wv: WebView) {
-        wv.settings.userAgentString = if (desktop) BrowserRules.desktopUserAgent(mobileUa) else mobileUa
-    }
     val webView = remember { mutableStateOf<WebView?>(null) }
+    /** A window the page opened (window.open / target=_blank), shown on top. */
+    val popup = remember { mutableStateOf<WebView?>(null) }
+
+    /** The page the fill buttons and menu act on: the popup when one is open. */
+    fun active(): WebView? = popup.value ?: webView.value
 
     LaunchedEffect(clientId) {
         client = if (clientId > 0) clients.get(clientId) else null
@@ -104,7 +110,7 @@ fun BrowserScreen(
     fun toast(msg: String) = Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show()
 
     fun fill(value: String?, isPassword: Boolean, what: String) {
-        val wv = webView.value ?: return
+        val wv = active() ?: return
         if (value.isNullOrEmpty()) return toast("No $what saved for this client")
         wv.evaluateJavascript(BrowserRules.fillFocused(value, isPassword)) { r ->
             when (r?.trim('"')) {
@@ -115,13 +121,101 @@ fun BrowserScreen(
         }
     }
 
+    fun closePopup() {
+        popup.value?.let { it.stopLoading(); it.destroy() }
+        popup.value = null
+    }
+
+    fun fitToScreen(wv: WebView) {
+        var n = 0
+        while (n < 30 && wv.zoomOut()) n++
+    }
+
+    /** Settings shared by the main page and any popup window. */
+    fun configure(wv: WebView, isPopup: Boolean) {
+        // Android's own autofill must not offer to save client passwords.
+        wv.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+        wv.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            setSupportMultipleWindows(true)
+            javaScriptCanOpenWindowsAutomatically = true
+            allowFileAccess = false
+            allowContentAccess = false
+            setSupportZoom(true)
+            builtInZoomControls = true
+            displayZoomControls = false
+            loadWithOverviewMode = true
+            useWideViewPort = true
+            userAgentString = if (desktop) BrowserRules.desktopUserAgent(mobileUa) else mobileUa
+        }
+        CookieManager.getInstance().setAcceptCookie(true)
+        CookieManager.getInstance().setAcceptThirdPartyCookies(wv, true)
+
+        wv.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                val url = request.url.toString()
+                if (BrowserRules.isAllowed(url, extraLinks)) return false
+                // Other sites (and tel:, mailto: …) open outside the app.
+                Actions.openUrl(view.context, url)
+                if (isPopup && view.url.isNullOrBlank()) closePopup()
+                return true
+            }
+
+            override fun onPageCommitVisible(view: WebView, url: String) {
+                view.evaluateJavascript(BrowserRules.viewportJs(desktop), null)
+            }
+
+            override fun onPageFinished(view: WebView, url: String) {
+                view.evaluateJavascript(BrowserRules.viewportJs(desktop), null)
+                if (!isPopup) {
+                    currentUrl = url
+                    title = view.title.orEmpty()
+                }
+                val c = client
+                BrowserRules.autoFill(url, c?.cnic?.let(Formats::irisUsername), c?.irisPassword, reference)?.let { js ->
+                    view.evaluateJavascript(js, null)
+                }
+            }
+        }
+        wv.webChromeClient = object : WebChromeClient() {
+            override fun onProgressChanged(view: WebView, newProgress: Int) {
+                if (!isPopup) progress = newProgress
+            }
+
+            override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message): Boolean {
+                closePopup()
+                val child = WebView(view.context)
+                configure(child, isPopup = true)
+                popup.value = child
+                (resultMsg.obj as WebView.WebViewTransport).webView = child
+                resultMsg.sendToTarget()
+                return true
+            }
+
+            override fun onCloseWindow(window: WebView) {
+                if (window == popup.value) closePopup()
+            }
+        }
+        wv.setDownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
+            download(wv.context, url, userAgent, contentDisposition, mimeType)
+        }
+    }
+
     BackHandler {
+        val p = popup.value
         val wv = webView.value
-        if (wv != null && wv.canGoBack()) wv.goBack() else onClose()
+        when {
+            p != null && p.canGoBack() -> p.goBack()
+            p != null -> closePopup()
+            wv != null && wv.canGoBack() -> wv.goBack()
+            else -> onClose()
+        }
     }
 
     DisposableEffect(Unit) {
         onDispose {
+            closePopup()
             webView.value?.apply {
                 stopLoading()
                 clearHistory()
@@ -138,9 +232,13 @@ fun BrowserScreen(
     Scaffold(
         topBar = {
             FbrTopBar(title = title.ifBlank { BrowserRules.host(currentUrl) ?: "" }, onBack = null) {
-                IconButton(onClick = { webView.value?.reload() }) { Icon(Icons.Filled.Refresh, contentDescription = "Reload") }
+                IconButton(onClick = { active()?.reload() }) { Icon(Icons.Filled.Refresh, contentDescription = "Reload") }
                 IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More") }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(text = { Text("Fit to screen") }, onClick = {
+                        menu = false
+                        active()?.let(::fitToScreen)
+                    })
                     DropdownMenuItem(
                         text = { Text("Desktop site") },
                         trailingIcon = { Checkbox(checked = desktop, onCheckedChange = null) },
@@ -148,16 +246,19 @@ fun BrowserScreen(
                             menu = false
                             desktop = !desktop
                             prefs.edit().putBoolean("desktop_site", desktop).apply()
-                            webView.value?.let { applyMode(it); it.reload() }
+                            listOfNotNull(webView.value, popup.value).forEach { wv ->
+                                wv.settings.userAgentString = if (desktop) BrowserRules.desktopUserAgent(mobileUa) else mobileUa
+                                wv.reload()
+                            }
                         },
                     )
                     DropdownMenuItem(text = { Text("Save page as PDF / Print") }, onClick = {
                         menu = false
-                        webView.value?.let { printPage(ctx, it, title) }
+                        active()?.let { printPage(ctx, it, title) }
                     })
                     DropdownMenuItem(text = { Text("Open in Chrome") }, onClick = {
                         menu = false
-                        Actions.openUrl(ctx, currentUrl)
+                        Actions.openUrl(ctx, active()?.url ?: currentUrl)
                     })
                 }
                 IconButton(onClick = onClose) { Icon(Icons.Filled.Close, contentDescription = "Close browser") }
@@ -192,63 +293,44 @@ fun BrowserScreen(
             }
         },
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
-            if (progress in 1..99) LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth())
-            if (!ready) return@Column
-            AndroidView(
-                modifier = Modifier.fillMaxSize(),
-                factory = { context ->
-                    WebView(context).apply {
-                        // Android's own autofill must not offer to save client passwords.
-                        importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
-                        settings.javaScriptEnabled = true
-                        settings.domStorageEnabled = true
-                        settings.setSupportMultipleWindows(false)
-                        settings.allowFileAccess = false
-                        settings.allowContentAccess = false
-                        settings.builtInZoomControls = true
-                        settings.displayZoomControls = false
-                        settings.loadWithOverviewMode = true
-                        settings.useWideViewPort = true
-                        CookieManager.getInstance().setAcceptCookie(true)
-                        applyMode(this)
-
-                        webViewClient = object : WebViewClient() {
-                            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                                val url = request.url.toString()
-                                if (BrowserRules.isAllowed(url, extraLinks)) return false
-                                // Other sites (and tel:, mailto: …) open outside the app.
-                                Actions.openUrl(context, url)
-                                return true
-                            }
-
-                            override fun onPageFinished(view: WebView, url: String) {
-                                currentUrl = url
-                                title = view.title.orEmpty()
-                                val c = client
-                                BrowserRules.autoFill(url, c?.cnic?.let(Formats::irisUsername), c?.irisPassword, reference)?.let { js ->
-                                    view.evaluateJavascript(js, null)
+        Box(Modifier.fillMaxSize().padding(padding)) {
+            Column(Modifier.fillMaxSize()) {
+                if (progress in 1..99) LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth())
+                if (ready) {
+                    AndroidView(
+                        modifier = Modifier.fillMaxSize(),
+                        factory = { context ->
+                            WebView(context).apply {
+                                configure(this, isPopup = false)
+                                webView.value = this
+                                if (BrowserRules.isAllowed(startUrl, extraLinks)) {
+                                    loadUrl(startUrl)
+                                } else {
+                                    Actions.openUrl(context, startUrl)
+                                    onClose()
                                 }
                             }
-                        }
-                        webChromeClient = object : WebChromeClient() {
-                            override fun onProgressChanged(view: WebView, newProgress: Int) {
-                                progress = newProgress
+                        },
+                    )
+                }
+            }
+            // A window opened by the page, on top of it, with its own Close button.
+            popup.value?.let { p ->
+                key(p) {
+                    Surface(Modifier.fillMaxSize(), tonalElevation = 2.dp) {
+                        Column(Modifier.fillMaxSize()) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text("Window opened by the site", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+                                TextButton(onClick = ::closePopup) { Text("Close window") }
                             }
-                        }
-                        setDownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
-                            download(context, url, userAgent, contentDisposition, mimeType)
-                        }
-                        webView.value = this
-                        if (BrowserRules.isAllowed(startUrl, extraLinks)) {
-                            loadUrl(startUrl)
-                        } else {
-                            Actions.openUrl(context, startUrl)
-                            onClose()
+                            AndroidView(modifier = Modifier.fillMaxSize(), factory = { p })
                         }
                     }
-                },
-            )
+                }
+            }
         }
     }
 }

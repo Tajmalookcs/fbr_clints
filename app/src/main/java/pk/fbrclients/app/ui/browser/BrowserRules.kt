@@ -34,6 +34,37 @@ object BrowserRules {
     }
 
 
+    /**
+     * Unlocks pinch-zoom and moving on every page (many sites set "user-scalable=no").
+     * In desktop mode the page is also laid out 1280 px wide, like a computer screen.
+     * Re-applied if the page (e.g. IRIS, a single-page app) changes the setting again.
+     */
+    fun viewportJs(desktop: Boolean): String = """
+        (function(){
+          var DESKTOP=${desktop};
+          function fix(){
+            var m=document.querySelector('meta[name="viewport"]');
+            if(!m){ m=document.createElement('meta'); m.name='viewport'; (document.head||document.documentElement).appendChild(m); }
+            var c=m.getAttribute('content')||'';
+            var want;
+            if(DESKTOP){ want='width=1280, minimum-scale=0.1, maximum-scale=10, user-scalable=yes'; }
+            else {
+              var parts=c.split(',').map(function(x){return x.trim();}).filter(function(x){
+                var k=x.split('=')[0].trim().toLowerCase(); return x && k!=='user-scalable' && k!=='maximum-scale' && k!=='minimum-scale'; });
+              parts.push('minimum-scale=0.1','maximum-scale=10','user-scalable=yes'); want=parts.join(', ');
+            }
+            if(c!==want){ m.setAttribute('content',want); }
+            document.documentElement.style.touchAction='auto';
+            if(document.body){ document.body.style.touchAction='auto'; }
+          }
+          fix();
+          if(!window.__fbrViewport){
+            window.__fbrViewport=true;
+            try{ new MutationObserver(function(){ fix(); }).observe(document.head||document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['content']}); }catch(e){}
+          }
+        })();
+    """.trimIndent()
+
     /** Small helpers shared by the scripts below: visible inputs, and setting a value the page will notice. */
     private const val HELPERS = """
         function vis(e){ var r=e.getBoundingClientRect(); return !e.disabled && !e.readOnly && r.width>0 && r.height>0; }
