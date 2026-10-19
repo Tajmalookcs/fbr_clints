@@ -12,6 +12,7 @@ import android.webkit.CookieManager
 import android.webkit.URLUtil
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -31,6 +32,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
@@ -83,6 +85,13 @@ fun BrowserScreen(
     var progress by remember { mutableIntStateOf(0) }
     var currentUrl by remember { mutableStateOf(startUrl) }
     var menu by remember { mutableStateOf(false) }
+    val prefs = remember { ctx.getSharedPreferences("browser", Context.MODE_PRIVATE) }
+    var desktop by remember { mutableStateOf(prefs.getBoolean("desktop_site", true)) }
+    val mobileUa = remember { WebSettings.getDefaultUserAgent(ctx) }
+
+    fun applyMode(wv: WebView) {
+        wv.settings.userAgentString = if (desktop) BrowserRules.desktopUserAgent(mobileUa) else mobileUa
+    }
     val webView = remember { mutableStateOf<WebView?>(null) }
 
     LaunchedEffect(clientId) {
@@ -131,6 +140,16 @@ fun BrowserScreen(
                 IconButton(onClick = { webView.value?.reload() }) { Icon(Icons.Filled.Refresh, contentDescription = "Reload") }
                 IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More") }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Desktop site") },
+                        trailingIcon = { Checkbox(checked = desktop, onCheckedChange = null) },
+                        onClick = {
+                            menu = false
+                            desktop = !desktop
+                            prefs.edit().putBoolean("desktop_site", desktop).apply()
+                            webView.value?.let { applyMode(it); it.reload() }
+                        },
+                    )
                     DropdownMenuItem(text = { Text("Save page as PDF / Print") }, onClick = {
                         menu = false
                         webView.value?.let { printPage(ctx, it, title) }
@@ -191,6 +210,7 @@ fun BrowserScreen(
                         settings.loadWithOverviewMode = true
                         settings.useWideViewPort = true
                         CookieManager.getInstance().setAcceptCookie(true)
+                        applyMode(this)
 
                         webViewClient = object : WebViewClient() {
                             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
@@ -204,6 +224,7 @@ fun BrowserScreen(
                             override fun onPageFinished(view: WebView, url: String) {
                                 currentUrl = url
                                 title = view.title.orEmpty()
+                                if (desktop) view.evaluateJavascript(BrowserRules.DESKTOP_VIEWPORT_JS, null)
                                 val c = client
                                 BrowserRules.autoFill(url, c?.cnic, c?.irisPassword, reference)?.let { js ->
                                     view.evaluateJavascript(js, null)

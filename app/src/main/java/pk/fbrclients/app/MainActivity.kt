@@ -1,7 +1,6 @@
 package pk.fbrclients.app
 
 import android.os.Bundle
-import android.view.WindowManager
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
@@ -23,8 +22,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // No screenshots, no screen recording, blank preview in recent apps.
-        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        // Screenshots are allowed on purpose (owner's choice, 2026-10-19).
         enableEdgeToEdge()
 
         val app = application as FbrApp

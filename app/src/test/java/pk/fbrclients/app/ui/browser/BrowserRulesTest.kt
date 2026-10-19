@@ -24,6 +24,16 @@ class BrowserRulesTest {
         assertFalse(BrowserRules.isAllowed("not a url", links))
     }
 
+    @Test fun desktopUserAgentKeepsChromeVersion() {
+        val mobile = "Mozilla/5.0 (Linux; Android 14; SM-A546E Build/UP1A; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/129.0.6668.100 Mobile Safari/537.36"
+        val d = BrowserRules.desktopUserAgent(mobile)
+        assertTrue(d.contains("Windows NT 10.0"))
+        assertTrue(d.contains("Chrome/129.0.6668.100"))
+        assertFalse(d.contains("Android"))
+        assertFalse(d.contains("Mobile"))
+        assertFalse(d.contains("wv"))
+    }
+
     @Test fun valuesAreQuotedSafely() {
         val js = BrowserRules.fillFocused("a'b\"c</script>\\", isPassword = true)
         assertTrue(js.contains("\"a'b\\\"c<\\/script>\\\\\""))
