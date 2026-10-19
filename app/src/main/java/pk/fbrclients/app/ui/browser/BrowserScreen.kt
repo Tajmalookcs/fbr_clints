@@ -4,6 +4,26 @@ import android.annotation.SuppressLint
 import android.app.DownloadManager
 import android.content.Context
 import android.net.Uri
+import androidx.webkit.WebViewFeature
+import androidx.webkit.WebSettingsCompat
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.AlertDialog
+import androidx.compose.runtime.mutableStateListOf
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import android.webkit.WebResourceResponse
+import android.webkit.WebResourceError
+import android.webkit.ValueCallback
+import android.webkit.SslErrorHandler
+import android.webkit.PermissionRequest
+import android.webkit.JsResult
+import android.webkit.ConsoleMessage
+import android.net.http.SslError
+import android.app.AlertDialog as PageDialog
 import androidx.compose.ui.Alignment
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.key
@@ -98,6 +118,22 @@ fun BrowserScreen(
     /** A window the page opened (window.open / target=_blank), shown on top. */
     val popup = remember { mutableStateOf<WebView?>(null) }
 
+    /** "Page problems": errors the pages report, newest last (kept in memory only). */
+    val problems = remember { mutableStateListOf<String>() }
+    var showProblems by remember { mutableStateOf(false) }
+    fun log(msg: String) {
+        val time = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date())
+        problems.add("$time  $msg")
+        if (problems.size > 150) problems.removeAt(0)
+    }
+
+    // File upload boxes on the page ("Choose file").
+    var fileCallback by remember { mutableStateOf<ValueCallback<Array<Uri>>?>(null) }
+    val fileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
+        fileCallback?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(res.resultCode, res.data))
+        fileCallback = null
+    }
+
     /** The page the fill buttons and menu act on: the popup when one is open. */
     fun active(): WebView? = popup.value ?: webView.value
 
@@ -148,6 +184,13 @@ fun BrowserScreen(
             loadWithOverviewMode = true
             useWideViewPort = true
             userAgentString = if (desktop) BrowserRules.desktopUserAgent(mobileUa) else mobileUa
+            // Like Chrome: allow pages that load a few parts over http.
+            mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+            mediaPlaybackRequiresUserGesture = true
+        }
+        // Don't tell sites the page is inside an app (Android adds this header otherwise).
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
+            WebSettingsCompat.setRequestedWithHeaderOriginAllowList(wv.settings, emptySet())
         }
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(wv, true)
@@ -155,11 +198,27 @@ fun BrowserScreen(
         wv.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url.toString()
+                // Frames inside a page (popups, embedded forms) always load; only whole-page moves are checked.
+                if (!request.isForMainFrame) return false
                 if (BrowserRules.isAllowed(url, extraLinks)) return false
+                log("Opened outside the app: $url")
                 // Other sites (and tel:, mailto: …) open outside the app.
                 Actions.openUrl(view.context, url)
                 if (isPopup && view.url.isNullOrBlank()) closePopup()
                 return true
+            }
+
+            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                log("Load error ${error.errorCode} \"${error.description}\": ${request.url}")
+            }
+
+            override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
+                if (response.statusCode >= 400) log("HTTP ${response.statusCode}: ${request.url}")
+            }
+
+            override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
+                log("Security (SSL) error on ${error.url} — blocked")
+                handler.cancel()
             }
 
             override fun onPageCommitVisible(view: WebView, url: String) {
@@ -183,8 +242,49 @@ fun BrowserScreen(
                 if (!isPopup) progress = newProgress
             }
 
+            override fun onConsoleMessage(m: ConsoleMessage): Boolean {
+                if (m.messageLevel() == ConsoleMessage.MessageLevel.ERROR || m.messageLevel() == ConsoleMessage.MessageLevel.WARNING) {
+                    log("${m.messageLevel().name.lowercase()}: ${m.message()} (${m.sourceId().substringAfterLast('/')}:${m.lineNumber()})")
+                }
+                return true
+            }
+
+            override fun onShowFileChooser(view: WebView, callback: ValueCallback<Array<Uri>>, params: FileChooserParams): Boolean {
+                fileCallback?.onReceiveValue(null)
+                fileCallback = callback
+                return try {
+                    fileLauncher.launch(params.createIntent())
+                    true
+                } catch (e: Exception) {
+                    fileCallback = null
+                    log("File chooser failed: ${e.message}")
+                    false
+                }
+            }
+
+            override fun onPermissionRequest(request: PermissionRequest) {
+                log("Site asked for: ${request.resources.joinToString()} — not allowed")
+                request.deny()
+            }
+
+            override fun onJsAlert(view: WebView, url: String, message: String, result: JsResult): Boolean {
+                PageDialog.Builder(view.context).setMessage(message)
+                    .setPositiveButton(android.R.string.ok) { _, _ -> result.confirm() }
+                    .setOnCancelListener { result.cancel() }.show()
+                return true
+            }
+
+            override fun onJsConfirm(view: WebView, url: String, message: String, result: JsResult): Boolean {
+                PageDialog.Builder(view.context).setMessage(message)
+                    .setPositiveButton(android.R.string.ok) { _, _ -> result.confirm() }
+                    .setNegativeButton(android.R.string.cancel) { _, _ -> result.cancel() }
+                    .setOnCancelListener { result.cancel() }.show()
+                return true
+            }
+
             override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message): Boolean {
                 closePopup()
+                log("Site opened a new window")
                 val child = WebView(view.context)
                 configure(child, isPopup = true)
                 popup.value = child
@@ -235,6 +335,10 @@ fun BrowserScreen(
                 IconButton(onClick = { active()?.reload() }) { Icon(Icons.Filled.Refresh, contentDescription = "Reload") }
                 IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More") }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(text = { Text("Page problems (${problems.size})") }, onClick = {
+                        menu = false
+                        showProblems = true
+                    })
                     DropdownMenuItem(text = { Text("Fit to screen") }, onClick = {
                         menu = false
                         active()?.let(::fitToScreen)
@@ -332,6 +436,28 @@ fun BrowserScreen(
                 }
             }
         }
+    }
+
+    if (showProblems) {
+        AlertDialog(
+            onDismissRequest = { showProblems = false },
+            title = { Text("Page problems") },
+            text = {
+                Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                    Text(
+                        "Page: " + (active()?.url ?: currentUrl),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    if (problems.isEmpty()) Text("No problems reported.")
+                    SelectionContainer {
+                        Text(problems.joinToString("\n\n"), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showProblems = false }) { Text("Close") } },
+            dismissButton = { TextButton(onClick = { problems.clear() }) { Text("Clear") } },
+        )
     }
 }
 

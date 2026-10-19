@@ -75,6 +75,7 @@ dependencies {
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.webkit)
 
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
