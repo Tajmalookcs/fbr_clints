@@ -34,6 +34,7 @@ object Seed {
     private val RESIDENTIAL_SUB_TYPES = listOf("Constructed Property", "Farm House", "Flat", "Open Plot")
 
     fun insert(db: SupportSQLiteDatabase) {
+        DiscoSeed.insertSql.forEach { (sql, args) -> db.execSQL(sql, args) }
         CATEGORIES.forEachIndexed { i, r ->
             db.execSQL(
                 "INSERT INTO category (code, name, grp, isProperty, sortOrder, builtIn, editable) VALUES (?, ?, ?, ?, ?, 1, ?)",

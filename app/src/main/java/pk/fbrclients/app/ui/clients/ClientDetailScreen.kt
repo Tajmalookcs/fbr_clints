@@ -49,6 +49,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pk.fbrclients.app.data.Client
 import pk.fbrclients.app.data.ClientDao
 import pk.fbrclients.app.data.WealthDao
+import pk.fbrclients.app.data.ElectricityDao
+import pk.fbrclients.app.ui.bills.BillsSection
 import pk.fbrclients.app.data.WealthMath
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -62,6 +64,7 @@ fun ClientDetailScreen(
     id: Long,
     dao: ClientDao,
     wealth: WealthDao,
+    electricity: ElectricityDao,
     clipboard: SecureClipboard,
     onBack: () -> Unit,
     onEdit: () -> Unit,
@@ -121,6 +124,8 @@ fun ClientDetailScreen(
                     Field("Notes", c.notes, last = true)
                 }
             }
+
+            BillsSection(clientId = id, dao = electricity, clipboard = clipboard)
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Wealth Statements", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))

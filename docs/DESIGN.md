@@ -6,6 +6,7 @@ Small additions made during the build (not in the original design):
 - Clients and Wealth Statements can be deleted (with a confirmation).
 - In the property form, a missing sub-type can be added straight from the sub-type list.
 - Assets / Liabilities tabs show only group headings with one Add button that opens a list of types; categories appear once they have items (owner, 2026-10-17).
+- Electricity bills per client with bill / tax-certificate links; database schema version 3 (owner, 2026-10-19).
 - Property land area entered in boxes with a calculated Total (owner, 2026-10-17). Database schema version 2 (upgrade from 1 keeps data).
 - 7014 items have an optional "CNIC of holder" field (owner, 2026-10-17).
 - Username may be an NTN for companies / AOPs; Business Name field added (owner, 2026-10-16).
@@ -54,6 +55,8 @@ An offline Android app for one tax practitioner. It keeps clients' IRIS login de
 | Notes | Free text |
 
 Client screen buttons: **Call, WhatsApp, SMS, Email, Copy Username, Copy Password, Open IRIS** (iris.fbr.gov.pk).
+
+Client screen also has **Electricity bills**: company (FESCO, GEPCO, HESCO, IESCO, LESCO, MEPCO, PESCO, QESCO, SEPCO, TESCO, K-Electric), reference number, optional label; buttons **Check bill**, **Tax certificate** (copy the reference, then open the company's official page) and **Copy ref**. Links are editable in Settings → Electricity companies; bill pages default to bill.pitc.com.pk/<company>bill, FESCO certificate page given by the owner, others empty until the owner adds them.
 
 Client list: search by name, business name, CNIC, NTN or mobile.
 

@@ -105,6 +105,14 @@ object BackupJson {
                     .put("incomeNormal", s.incomeNormal).put("incomeExempt", s.incomeExempt)
                     .put("incomeFinal", s.incomeFinal).put("personalExpenses", s.personalExpenses)
             }))
+            .put("bills", JSONArray(d.bills.map { b ->
+                JSONObject().put("id", b.id).put("clientId", b.clientId).put("company", b.company)
+                    .put("referenceNo", b.referenceNo).put("label", b.label)
+            }))
+            .put("discos", JSONArray(d.discos.map { x ->
+                JSONObject().put("code", x.code).put("name", x.name).put("billUrl", x.billUrl)
+                    .put("certUrl", x.certUrl).put("sortOrder", x.sortOrder)
+            }))
             .put("items", JSONArray(d.items.map { i ->
                 JSONObject().put("id", i.id).put("statementId", i.statementId).put("categoryId", i.categoryId)
                     .put("description", i.description).put("amount", i.amount)
@@ -157,6 +165,18 @@ object BackupJson {
                     holderCnic = o.optText("holderCnic"),
                     areaAcre = o.optText("areaAcre"), areaKanal = o.optText("areaKanal"), areaMarla = o.optText("areaMarla"),
                     areaSarsahi = o.optText("areaSarsahi"), areaSft = o.optText("areaSft"), areaSqm = o.optText("areaSqm"),
+                )
+            },
+            bills = root.optJSONArray("bills")?.objects().orEmpty().map { o ->
+                ElectricityBill(
+                    id = o.getLong("id"), clientId = o.getLong("clientId"), company = o.getString("company"),
+                    referenceNo = o.getString("referenceNo"), label = o.getString("label"),
+                )
+            },
+            discos = root.optJSONArray("discos")?.objects().orEmpty().map { o ->
+                Disco(
+                    code = o.getString("code"), name = o.getString("name"), billUrl = o.getString("billUrl"),
+                    certUrl = o.getString("certUrl"), sortOrder = o.getInt("sortOrder"),
                 )
             },
         )

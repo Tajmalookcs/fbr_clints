@@ -15,10 +15,27 @@ object Migrations {
         }
     }
 
-    val ALL = arrayOf(MIGRATION_1_2)
+    val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            MigrationSql.v2to3.forEach(db::execSQL)
+            DiscoSeed.insertSql.forEach { (sql, args) -> db.execSQL(sql, args) }
+        }
+    }
+
+    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
 }
 
 object MigrationSql {
+    /** 2 -> 3: electricity bills per client, and electricity companies with their links. */
+    val v2to3: List<String> = listOf(
+        "CREATE TABLE IF NOT EXISTS `electricity_bill` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `clientId` INTEGER NOT NULL, " +
+            "`company` TEXT NOT NULL, `referenceNo` TEXT NOT NULL, `label` TEXT NOT NULL, " +
+            "FOREIGN KEY(`clientId`) REFERENCES `client`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "CREATE INDEX IF NOT EXISTS `index_electricity_bill_clientId` ON `electricity_bill` (`clientId`)",
+        "CREATE TABLE IF NOT EXISTS `disco` (`code` TEXT NOT NULL, `name` TEXT NOT NULL, `billUrl` TEXT NOT NULL, " +
+            "`certUrl` TEXT NOT NULL, `sortOrder` INTEGER NOT NULL, PRIMARY KEY(`code`))",
+    )
+
     /**
      * 1 -> 2: land area boxes (Acre, Kanal, Marla, Sarsahi, Sft, Sq m).
      * The old single area + unit moves into the matching box; area/areaUnit

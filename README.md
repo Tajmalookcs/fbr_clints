@@ -17,6 +17,7 @@ Android asks you to allow installs from your browser the first time.
 - **Clients:** search by name, CNIC, NTN or mobile. On a client's page: Call, WhatsApp, SMS, Email, Copy CNIC, Copy Password (clears after 30 s), Open IRIS.
 - **Wealth Statement:** on a client's page, tap **New tax year**. It can copy every item from the previous year. Tabs: Assets, Liabilities, Reconciliation. Every description has a **Copy** button for pasting into IRIS; on the Reconciliation tab, tap any amount to copy it.
 - **Settings** (gear icon on the client list): change PIN, fingerprint, auto-lock time, categories and property sub-types (add unknown IRIS codes here), backup and restore.
+- **Electricity bills:** on a client's page, **Add bill** (company + reference number). **Check bill** / **Tax certificate** copy the reference and open the official page. Links: *Settings → Electricity companies*.
 - **Import from Excel:** *Settings → Import clients from Excel*. Column A = CNIC (username), column B = password, or use headers (Username, Password, Name, NTN, Mobile, Email). The file is read on the phone only.
 - **Backups:** *Settings → Back up now* makes an encrypted `.fbrbak` file with its own password. *Restore* replaces everything on the phone with the backup. The password cannot be recovered.
 
@@ -32,7 +33,7 @@ Signing: the release key is rebuilt on each run from one GitHub Secret, `SIGNING
 ## For developers
 
 - Kotlin, Jetpack Compose, Room + SQLCipher, min Android 8.0.
-- Database schema is **version 2** (see `data/Migrations.kt`). Any table change needs a version bump **and** a migration step, or clients' data will be lost on update.
+- Database schema is **version 3** (see `data/Migrations.kt`). Any table change needs a version bump **and** a migration step, or clients' data will be lost on update.
 - Unit tests cover PIN hashing, lockout, input formats, Wealth Statement maths and the backup file.
 
 > This repository contains code only. No client data is ever stored here.

@@ -16,14 +16,18 @@ import java.security.SecureRandom
  * so that clients' data is never lost.
  */
 @Database(
-    entities = [Client::class, Category::class, PropertySubType::class, WealthStatement::class, WealthItem::class],
-    version = 2,
+    entities = [
+        Client::class, Category::class, PropertySubType::class, WealthStatement::class, WealthItem::class,
+        ElectricityBill::class, Disco::class,
+    ],
+    version = 3,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun clients(): ClientDao
     abstract fun wealth(): WealthDao
     abstract fun backup(): BackupDao
+    abstract fun electricity(): ElectricityDao
 
     companion object {
         private const val FILE = "fbr_clients.db"

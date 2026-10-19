@@ -27,6 +27,9 @@ object Actions {
     fun openIris(ctx: Context) =
         open(ctx, Intent(Intent.ACTION_VIEW, Uri.parse(IRIS_URL)), "browser")
 
+    fun openUrl(ctx: Context, url: String) =
+        open(ctx, Intent(Intent.ACTION_VIEW, Uri.parse(url.trim())), "browser")
+
     private fun open(ctx: Context, intent: Intent, what: String) {
         try {
             ctx.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))

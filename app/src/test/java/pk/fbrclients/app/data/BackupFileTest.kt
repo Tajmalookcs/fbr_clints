@@ -29,6 +29,8 @@ class BackupFileTest {
             WealthItem(id = 2, statementId = 2, categoryId = 3, description = "Loan", amount = 250_000),
             WealthItem(id = 3, statementId = 2, categoryId = 3, description = "Plot in wife's name", amount = 0, holderCnic = "12345-1234567-2"),
         ),
+        bills = listOf(ElectricityBill(id = 1, clientId = 1, company = "FESCO", referenceNo = "12345678901234", label = "Shop")),
+        discos = DiscoSeed.ALL,
     )
 
     @Test fun jsonRoundTrip() {

@@ -15,6 +15,7 @@ import pk.fbrclients.app.ui.clients.ClientListScreen
 import pk.fbrclients.app.ui.clients.ClientListViewModel
 import pk.fbrclients.app.ui.settings.CategoriesScreen
 import pk.fbrclients.app.ui.settings.ChangePinScreen
+import pk.fbrclients.app.ui.settings.DiscosScreen
 import pk.fbrclients.app.ui.settings.ImportScreen
 import pk.fbrclients.app.ui.settings.ImportViewModel
 import pk.fbrclients.app.ui.settings.SettingsScreen
@@ -51,6 +52,7 @@ fun AppNav(app: FbrApp) {
                 id = id,
                 dao = clients,
                 wealth = wealth,
+                electricity = db.electricity(),
                 clipboard = app.clipboard,
                 onBack = { nav.popBackStack() },
                 onEdit = { nav.navigate("edit/$id") },
@@ -103,11 +105,15 @@ fun AppNav(app: FbrApp) {
                 onChangePin = { nav.navigate("settings/pin") },
                 onCategories = { nav.navigate("settings/categories") },
                 onImport = { nav.navigate("settings/import") },
+                onDiscos = { nav.navigate("settings/discos") },
                 onRestored = { /* Data changed underneath every screen: stay here; lists refresh on their own. */ },
             )
         }
         composable("settings/pin") {
             ChangePinScreen(app.pinStore, onDone = { nav.popBackStack() })
+        }
+        composable("settings/discos") {
+            DiscosScreen(db.electricity(), onBack = { nav.popBackStack() })
         }
         composable("settings/import") {
             ImportScreen(vm = viewModel { ImportViewModel(app) }, onBack = { nav.popBackStack() })

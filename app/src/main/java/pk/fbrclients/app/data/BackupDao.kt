@@ -12,6 +12,9 @@ data class BackupData(
     val subTypes: List<PropertySubType>,
     val statements: List<WealthStatement>,
     val items: List<WealthItem>,
+    val bills: List<ElectricityBill> = emptyList(),
+    /** Empty in backups made before electricity bills existed: then the phone keeps its own. */
+    val discos: List<Disco> = emptyList(),
 )
 
 @Dao
@@ -21,6 +24,12 @@ abstract class BackupDao {
     @Query("SELECT * FROM property_sub_type") abstract suspend fun subTypes(): List<PropertySubType>
     @Query("SELECT * FROM wealth_statement") abstract suspend fun statements(): List<WealthStatement>
     @Query("SELECT * FROM wealth_item") abstract suspend fun items(): List<WealthItem>
+    @Query("SELECT * FROM electricity_bill") abstract suspend fun bills(): List<ElectricityBill>
+    @Query("SELECT * FROM disco") abstract suspend fun discos(): List<Disco>
+    @Query("DELETE FROM electricity_bill") abstract suspend fun clearBills()
+    @Query("DELETE FROM disco") abstract suspend fun clearDiscos()
+    @Insert abstract suspend fun insertBills(x: List<ElectricityBill>)
+    @Insert abstract suspend fun insertDiscos(x: List<Disco>)
 
     @Query("DELETE FROM wealth_item") abstract suspend fun clearItems()
     @Query("DELETE FROM wealth_statement") abstract suspend fun clearStatements()
@@ -35,16 +44,21 @@ abstract class BackupDao {
     @Insert abstract suspend fun insertItems(x: List<WealthItem>)
 
     @Transaction
-    open suspend fun exportAll() = BackupData(clients(), categories(), subTypes(), statements(), items())
+    open suspend fun exportAll() = BackupData(clients(), categories(), subTypes(), statements(), items(), bills(), discos())
 
     /** Replaces everything on this phone with the backup, in one transaction. */
     @Transaction
     open suspend fun replaceAll(d: BackupData) {
-        clearItems(); clearStatements(); clearSubTypes(); clearCategories(); clearClients()
+        clearBills(); clearItems(); clearStatements(); clearSubTypes(); clearCategories(); clearClients()
         insertClients(d.clients)
         insertCategories(d.categories)
         insertSubTypes(d.subTypes)
         insertStatements(d.statements)
         insertItems(d.items)
+        insertBills(d.bills)
+        if (d.discos.isNotEmpty()) {
+            clearDiscos()
+            insertDiscos(d.discos)
+        }
     }
 }
