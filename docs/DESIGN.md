@@ -32,7 +32,7 @@ An offline Android app for one tax practitioner. It keeps clients' IRIS login de
 | Min Android | 8.0 (API 26) |
 | Distribution | APK installed directly (not the Play Store), built by GitHub Actions |
 | Return data | **Wealth Statement only.** No income or tax computation, filing status or PDF attachments |
-| Data entry | Manual, plus import of clients (CNIC/username, password, optional name, NTN, mobile, email) from an Excel .xlsx or CSV file. No PDF import. |
+| Data entry | Manual, plus import of clients (CNIC/username, password, optional name, NTN, mobile, email) from an Excel .xlsx file (only .xlsx; the file chooser shows all files and the app checks name and contents). No PDF import. |
 
 ## 2. Security
 

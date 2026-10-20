@@ -68,7 +68,9 @@ class ImportViewModel(app: Application) : AndroidViewModel(app) {
                     val ctx = getApplication<Application>()
                     val name = ctx.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
                         ?.use { c -> if (c.moveToFirst()) c.getString(0) else null } ?: "file"
+                    if (!ImportRules.isXlsxName(name)) throw SheetReader.UnsupportedFileException(ImportRules.wrongFileMessage(name))
                     val bytes = ctx.contentResolver.openInputStream(uri).use { requireNotNull(it) { "Could not open the file" }.readBytes() }
+                    if (!ImportRules.isZip(bytes)) throw SheetReader.UnsupportedFileException(ImportRules.wrongFileMessage(name))
                     val parsed = ClientImport.parse(SheetReader.read(bytes))
                     bytes.fill(0)
                     State.Preview(name, parsed, fbr.database.clients().allOnce())
@@ -77,7 +79,7 @@ class ImportViewModel(app: Application) : AndroidViewModel(app) {
                 State.Failed(
                     when (e) {
                         is SheetReader.UnsupportedFileException, is ClientImport.NoColumnsException -> e.message!!
-                        else -> "Couldn't read this file. Use an Excel (.xlsx) or CSV file."
+                        else -> "Couldn't read this file. Please choose an Excel .xlsx file."
                     },
                 )
             }
@@ -110,14 +112,9 @@ class ImportViewModel(app: Application) : AndroidViewModel(app) {
 fun ImportScreen(vm: ImportViewModel, onBack: () -> Unit) {
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) vm.load(uri) }
     val launchPicker = {
-        pick.launch(
-            arrayOf(
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                "application/vnd.ms-excel",
-                "text/csv", "text/comma-separated-values", "text/plain",
-                "application/octet-stream",
-            ),
-        )
+        // Phones label Excel files inconsistently, so a type filter can grey them out.
+        // Show every file; the app then accepts only real .xlsx files.
+        pick.launch(arrayOf("*/*"))
     }
 
     Scaffold(topBar = { FbrTopBar("Import clients", onBack = onBack) }) { padding ->
@@ -131,7 +128,7 @@ fun ImportScreen(vm: ImportViewModel, onBack: () -> Unit) {
         ) {
             when (val s = vm.state) {
                 ImportViewModel.State.Pick -> {
-                    Text("Add many clients at once from an Excel (.xlsx) or CSV file.", style = MaterialTheme.typography.bodyLarge)
+                    Text("Add many clients at once from an Excel file (.xlsx only).", style = MaterialTheme.typography.bodyLarge)
                     Hint(
                         "• Column A: IRIS username (CNIC, or NTN for companies / AOPs), Column B: password — or use headers like “Username” and “Password”.\n" +
                             "• Optional columns with headers: Name, Business Name, NTN, Cell No / Mobile, Email, Address.\n" +
@@ -219,4 +216,18 @@ private fun Count(label: String, n: Int, bold: Boolean = false) {
 @Composable
 private fun Hint(text: String) {
     Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+/** Import accepts only Excel .xlsx files (owner's choice, 2026-10-20). Plain JVM code, tested. */
+object ImportRules {
+    fun isXlsxName(name: String) = name.trim().lowercase().endsWith(".xlsx")
+
+    /** .xlsx files are zip archives: they start with "PK". */
+    fun isZip(bytes: ByteArray) = bytes.size >= 4 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()
+
+    fun wrongFileMessage(name: String): String = when {
+        name.lowercase().endsWith(".fbrbak") -> "This is a backup file. To use it, go to Settings → Restore from backup."
+        name.lowercase().endsWith(".xls") -> "This is an old Excel file (.xls). In Excel, use Save As → “Excel Workbook (.xlsx)”, then import that file."
+        else -> "Please choose an Excel .xlsx file."
+    }
 }

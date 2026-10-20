@@ -19,7 +19,7 @@ Android asks you to allow installs from your browser the first time.
 - **Settings** (gear icon on the client list): change PIN, fingerprint, auto-lock time, categories and property sub-types (add unknown IRIS codes here), backup and restore.
 - **App browser:** **IRIS in app**, **Check bill** and **Tax certificate** open inside the app and fill the username / password / reference for you (you press Login / Submit). Fill buttons at the bottom work on any box: tap the box, then the button. Sites open in desktop mode (⋮ → Desktop site to switch off).
 - **Electricity bills:** on a client's page, **Add bill** (company + reference number). **Check bill** / **Tax certificate** copy the reference and open the official page. Links: *Settings → Electricity companies*.
-- **Import from Excel:** *Settings → Import clients from Excel*. Column A = CNIC (username), column B = password, or use headers (Username, Password, Name, NTN, Mobile, Email). The file is read on the phone only.
+- **Import from Excel:** *Settings → Import clients from Excel*. Excel **.xlsx only**. Column A = CNIC (username), column B = password, or use headers (Username, Password, Name, NTN, Mobile, Email). The file is read on the phone only.
 - **Backups:** *Settings → Back up now* makes an encrypted `.fbrbak` file with its own password. *Restore* replaces everything on the phone with the backup. The password cannot be recovered.
 
 ## How the APK is built

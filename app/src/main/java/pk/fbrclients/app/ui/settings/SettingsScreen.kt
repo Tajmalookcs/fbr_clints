@@ -152,7 +152,7 @@ fun SettingsScreen(
             HorizontalDivider(Modifier.padding(top = 8.dp))
             Section("Clients")
             SettingRow("Electricity companies", "Links for checking bills and tax certificates", onClick = onDiscos)
-            SettingRow("Import clients from Excel", "Usernames (CNIC / NTN), passwords and details from an .xlsx or CSV file", onClick = onImport)
+            SettingRow("Import clients from Excel", "Usernames (CNIC / NTN), passwords and details from an Excel .xlsx file", onClick = onImport)
 
             HorizontalDivider(Modifier.padding(top = 8.dp))
             Section("Backup")
