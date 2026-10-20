@@ -113,6 +113,8 @@ fun BrowserScreen(
     var menu by remember { mutableStateOf(false) }
     val prefs = remember { ctx.getSharedPreferences("browser", Context.MODE_PRIVATE) }
     var desktop by remember { mutableStateOf(prefs.getBoolean("desktop_site", true)) }
+    /** Safe mode: the app makes no changes to pages (no zoom unlock, wide layout or popup fit). */
+    var safeMode by remember { mutableStateOf(prefs.getBoolean("safe_mode", false)) }
     val mobileUa = remember { WebSettings.getDefaultUserAgent(ctx) }
     val webView = remember { mutableStateOf<WebView?>(null) }
     /** A window the page opened (window.open / target=_blank), shown on top. */
@@ -222,13 +224,17 @@ fun BrowserScreen(
             }
 
             override fun onPageCommitVisible(view: WebView, url: String) {
-                view.evaluateJavascript(BrowserRules.viewportJs(desktop), null)
-                view.evaluateJavascript(BrowserRules.FIT_POPUPS_JS, null)
+                if (!safeMode) {
+                    view.evaluateJavascript(BrowserRules.viewportJs(desktop), null)
+                    view.evaluateJavascript(BrowserRules.FIT_POPUPS_JS, null)
+                }
             }
 
             override fun onPageFinished(view: WebView, url: String) {
-                view.evaluateJavascript(BrowserRules.viewportJs(desktop), null)
-                view.evaluateJavascript(BrowserRules.FIT_POPUPS_JS, null)
+                if (!safeMode) {
+                    view.evaluateJavascript(BrowserRules.viewportJs(desktop), null)
+                    view.evaluateJavascript(BrowserRules.FIT_POPUPS_JS, null)
+                }
                 if (!isPopup) {
                     currentUrl = url
                     title = view.title.orEmpty()
@@ -342,7 +348,7 @@ fun BrowserScreen(
                         active()?.evaluateJavascript(BrowserRules.PAGE_CHECK_JS) { r ->
                             // The result comes back as a JSON string.
                             val text = runCatching { org.json.JSONArray("[$r]").getString(0) }.getOrDefault(r.orEmpty())
-                            log("Page check:\n$text")
+                            log("Page check (safe mode ${if (safeMode) "on" else "off"}, desktop ${if (desktop) "on" else "off"}):\n$text")
                             showProblems = true
                         }
                     })
@@ -365,6 +371,17 @@ fun BrowserScreen(
                                 wv.settings.userAgentString = if (desktop) BrowserRules.desktopUserAgent(mobileUa) else mobileUa
                                 wv.reload()
                             }
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Safe mode (no page changes)") },
+                        trailingIcon = { Checkbox(checked = safeMode, onCheckedChange = null) },
+                        onClick = {
+                            menu = false
+                            safeMode = !safeMode
+                            prefs.edit().putBoolean("safe_mode", safeMode).apply()
+                            log("Safe mode " + if (safeMode) "on" else "off")
+                            listOfNotNull(webView.value, popup.value).forEach { it.reload() }
                         },
                     )
                     DropdownMenuItem(text = { Text("Save page as PDF / Print") }, onClick = {

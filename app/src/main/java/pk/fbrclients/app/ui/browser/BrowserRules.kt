@@ -72,15 +72,15 @@ object BrowserRules {
             ".swal2-popup, .dx-overlay-content, .ant-modal"
 
     /**
-     * Keeps every popup inside the screen: never wider or taller than the visible area,
-     * with its own scrolling, so buttons like Verify / Save can always be reached.
+     * Keeps popups no wider than the screen. Only the width is limited: limiting the
+     * height / adding scrolling squashed IRIS's popups to zero height (2026-10-20).
      */
     val FIT_POPUPS_JS: String = """
         (function(){
           if(document.getElementById('fbr-fit-popups')) return;
           var s=document.createElement('style'); s.id='fbr-fit-popups';
-          s.textContent='$POPUPS{max-width:96vw !important;max-height:92vh !important;overflow:auto !important;box-sizing:border-box !important;}'
-            + '.modal-dialog{margin-left:auto !important;margin-right:auto !important;}';
+          s.textContent='.cdk-overlay-pane,.modal-dialog,.p-dialog,.ui-dialog,.k-window,.e-dialog,.swal2-popup,.ant-modal{max-width:96vw !important;}'
+            + '.mat-mdc-dialog-container,.mat-dialog-container{max-width:100% !important;}';
           (document.head||document.documentElement).appendChild(s);
         })();
     """.trimIndent()
@@ -102,6 +102,18 @@ object BrowserRules {
           var bd=document.querySelectorAll('.cdk-overlay-backdrop, .modal-backdrop, .p-component-overlay, .ui-widget-overlay');
           out.push('backdrops: '+bd.length);
           for(var j=0;j<bd.length&&j<4;j++) out.push('  '+d(bd[j]));
+          // What is inside the first popups: parts, sizes and how much text they hold.
+          for(var p=0;p<pops.length&&p<2;p++){
+            out.push('inside popup '+(p+1)+':');
+            var n=0;
+            (function walk(e,depth){
+              for(var c=e.firstElementChild;c&&n<30;c=c.nextElementSibling){
+                n++; var cs=getComputedStyle(c);
+                out.push('  '+'  '.repeat(depth)+d(c)+' minH='+cs.minHeight+' maxH='+cs.maxHeight+' hgt='+cs.height+' text='+((c.innerText||'').trim().length));
+                if(depth<5) walk(c,depth+1);
+              }
+            })(pops[p],0);
+          }
           var ifr=document.querySelectorAll('iframe'); out.push('frames: '+ifr.length);
           for(var k=0;k<ifr.length&&k<4;k++) out.push('  '+d(ifr[k])+' src='+(ifr[k].src||'').slice(0,80));
           return out.join('\n');

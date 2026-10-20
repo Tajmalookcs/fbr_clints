@@ -45,6 +45,8 @@ class BrowserRulesTest {
     @Test fun popupScripts() {
         assertTrue(BrowserRules.FIT_POPUPS_JS.contains(".cdk-overlay-pane"))
         assertTrue(BrowserRules.FIT_POPUPS_JS.contains("max-width:96vw"))
+        assertFalse(BrowserRules.FIT_POPUPS_JS.contains("max-height"))
+        assertFalse(BrowserRules.FIT_POPUPS_JS.contains("overflow"))
         assertTrue(BrowserRules.PAGE_CHECK_JS.contains("popups: "))
         assertFalse(BrowserRules.PAGE_CHECK_JS.contains("\$"))
     }
