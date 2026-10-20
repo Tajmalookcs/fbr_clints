@@ -58,6 +58,8 @@ android {
     // The shared code (formats, maths, import, backup, sync) is compiled into the app
     // directly, so Room sees the entity classes as source. Its tests run in :shared.
     sourceSets.getByName("main").java.srcDir("../shared/src/main/kotlin")
+    // Small Compose parts (amount field, dropdown, dialogs) also used by the PC app.
+    sourceSets.getByName("main").java.srcDir("../shared-ui/src/main/kotlin")
 
     buildFeatures {
         compose = true

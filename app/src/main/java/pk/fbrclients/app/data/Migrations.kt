@@ -42,6 +42,9 @@ object MigrationSql {
         "electricity_bill" to Kind.BILL,
     )
 
+    /** Seed index of Residential Property (its sub-types are built in). */
+    val RESIDENTIAL_INDEX = SeedData.CATEGORIES.indexOfFirst { it.code == "7109" }
+
     /** Now, in milliseconds since 1970, inside SQLite. */
     private const val NOW = "CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)"
 
@@ -76,9 +79,6 @@ object MigrationSql {
                 "`replacedBy` TEXT, PRIMARY KEY(`uid`))",
         )
     }
-
-    /** Seed index of Residential Property (its sub-types are built in). */
-    val RESIDENTIAL_INDEX = SeedData.CATEGORIES.indexOfFirst { it.code == "7109" }
 
     private fun sqlText(s: String) = "'" + s.replace("'", "''") + "'"
 
