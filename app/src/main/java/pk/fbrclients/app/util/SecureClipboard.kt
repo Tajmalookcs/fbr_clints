@@ -48,6 +48,32 @@ class SecureClipboard(private val context: Context) {
         }
     }
 
+    /**
+     * For logging in to IRIS in Chrome via the keyboard's clipboard history (owner's idea):
+     * copies the password first, then the username, so the newest item is the username and
+     * the one before it is the password. Both are plain copies (a "sensitive" copy would be
+     * left out of the keyboard history). The phone's clipboard is cleared after
+     * [LOGIN_CLEAR_AFTER_MS]; the keyboard's own history must be cleared by the user.
+     */
+    fun copyLoginForKeyboard(username: String, password: String, then: () -> Unit) {
+        pendingClear?.let(handler::removeCallbacks)
+        pendingClear = null
+        if (password.isNotEmpty()) cm.setPrimaryClip(ClipData.newPlainText("Password", password))
+        handler.postDelayed({
+            cm.setPrimaryClip(ClipData.newPlainText("Username", username))
+            val r = Runnable { clearIfStillOurs(username) }
+            pendingClear = r
+            handler.postDelayed(r, LOGIN_CLEAR_AFTER_MS)
+            Toast.makeText(
+                context,
+                if (password.isNotEmpty()) "Keyboard clipboard: 1st = username, 2nd = password. Clear it when done."
+                else "Username copied (no password saved)",
+                Toast.LENGTH_LONG,
+            ).show()
+            handler.postDelayed(then, 300)
+        }, if (password.isNotEmpty()) 600 else 0)
+    }
+
     private fun clearIfStillOurs(text: String) {
         pendingClear = null
         // In the background Android hides the clipboard from us (returns null);
@@ -60,5 +86,6 @@ class SecureClipboard(private val context: Context) {
 
     companion object {
         const val CLEAR_AFTER_MS = 30_000L
+        const val LOGIN_CLEAR_AFTER_MS = 60_000L
     }
 }

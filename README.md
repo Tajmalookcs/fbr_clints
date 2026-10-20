@@ -14,7 +14,7 @@ Android asks you to allow installs from your browser the first time.
 
 ## Using the app
 
-- **Clients:** search by name, CNIC, NTN or mobile. On a client's page: Call, WhatsApp, SMS, Email, Copy CNIC, Copy Password (clears after 30 s), Open IRIS.
+- **Clients:** search by name, CNIC, NTN or mobile. On a client's page: Call, WhatsApp, SMS, Email, Copy CNIC, Copy Password (clears after 30 s), Open IRIS (copies password then username for the keyboard's clipboard history, then opens Chrome).
 - **Wealth Statement:** on a client's page, tap **New tax year**. It can copy every item from the previous year. Tabs: Assets, Liabilities, Reconciliation. Every description has a **Copy** button for pasting into IRIS; on the Reconciliation tab, tap any amount to copy it.
 - **Settings** (gear icon on the client list): change PIN, fingerprint, auto-lock time, categories and property sub-types (add unknown IRIS codes here), backup and restore.
 - **App browser:** **IRIS in app**, **Check bill** and **Tax certificate** open inside the app and fill the username / password / reference for you (you press Login / Submit). Fill buttons at the bottom work on any box: tap the box, then the button. Sites open in desktop mode (⋮ → Desktop site to switch off).

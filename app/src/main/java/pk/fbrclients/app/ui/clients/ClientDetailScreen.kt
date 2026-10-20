@@ -111,7 +111,10 @@ fun ClientDetailScreen(
                     clipboard.copy("Password", c.irisPassword, sensitive = true)
                 }
                 ActionButton("IRIS in app", null, true) { onOpenBrowser(Actions.IRIS_URL, null) }
-                ActionButton("Open IRIS", null, true) { Actions.openIris(ctx) }
+                ActionButton("Open IRIS", null, true) {
+                    // Password first, then username: the keyboard clipboard shows username, then password.
+                    clipboard.copyLoginForKeyboard(Formats.irisUsername(c.cnic), c.irisPassword) { Actions.openIris(ctx) }
+                }
             }
 
             Card(Modifier.fillMaxWidth()) {
