@@ -65,6 +65,49 @@ object BrowserRules {
         })();
     """.trimIndent()
 
+    /** CSS selectors of popup boxes used by common web frameworks (Angular Material, Bootstrap, PrimeNG, …). */
+    private const val POPUPS =
+        "[role=\"dialog\"], [role=\"alertdialog\"], dialog[open], .modal-dialog, .cdk-overlay-pane, " +
+            ".mat-dialog-container, .mat-mdc-dialog-container, .p-dialog, .ui-dialog, .k-window, .e-dialog, " +
+            ".swal2-popup, .dx-overlay-content, .ant-modal"
+
+    /**
+     * Keeps every popup inside the screen: never wider or taller than the visible area,
+     * with its own scrolling, so buttons like Verify / Save can always be reached.
+     */
+    val FIT_POPUPS_JS: String = """
+        (function(){
+          if(document.getElementById('fbr-fit-popups')) return;
+          var s=document.createElement('style'); s.id='fbr-fit-popups';
+          s.textContent='$POPUPS{max-width:96vw !important;max-height:92vh !important;overflow:auto !important;box-sizing:border-box !important;}'
+            + '.modal-dialog{margin-left:auto !important;margin-right:auto !important;}';
+          (document.head||document.documentElement).appendChild(s);
+        })();
+    """.trimIndent()
+
+    /**
+     * "Page check": describes every popup and backdrop on the page (size, position,
+     * whether hidden), plus the screen size, so a missing popup can be diagnosed.
+     */
+    val PAGE_CHECK_JS: String = """
+        (function(){
+          function d(e){ var r=e.getBoundingClientRect(), c=getComputedStyle(e);
+            var cls=(typeof e.className==='string'?e.className:'').trim().split(/\s+/).slice(0,3).join('.');
+            return e.tagName.toLowerCase()+(cls?'.'+cls:'')+' x='+Math.round(r.left)+' y='+Math.round(r.top)+' w='+Math.round(r.width)+' h='+Math.round(r.height)
+              +' display='+c.display+' vis='+c.visibility+' opacity='+c.opacity+' pos='+c.position+' z='+c.zIndex+(c.transform!=='none'?' transform='+c.transform:''); }
+          var out=['screen '+innerWidth+'x'+innerHeight+' zoom='+(window.visualViewport?visualViewport.scale.toFixed(2):'?')+' '+(navigator.userAgent.match(/Chrome\/[\d.]+/)||[''])[0]];
+          var pops=document.querySelectorAll('$POPUPS');
+          out.push('popups: '+pops.length);
+          for(var i=0;i<pops.length&&i<8;i++) out.push('  '+d(pops[i]));
+          var bd=document.querySelectorAll('.cdk-overlay-backdrop, .modal-backdrop, .p-component-overlay, .ui-widget-overlay');
+          out.push('backdrops: '+bd.length);
+          for(var j=0;j<bd.length&&j<4;j++) out.push('  '+d(bd[j]));
+          var ifr=document.querySelectorAll('iframe'); out.push('frames: '+ifr.length);
+          for(var k=0;k<ifr.length&&k<4;k++) out.push('  '+d(ifr[k])+' src='+(ifr[k].src||'').slice(0,80));
+          return out.join('\n');
+        })();
+    """.trimIndent()
+
     /** Small helpers shared by the scripts below: visible inputs, and setting a value the page will notice. */
     private const val HELPERS = """
         function vis(e){ var r=e.getBoundingClientRect(); return !e.disabled && !e.readOnly && r.width>0 && r.height>0; }

@@ -42,6 +42,13 @@ class BrowserRulesTest {
         assertTrue(BrowserRules.viewportJs(desktop = false).contains("var DESKTOP=false"))
     }
 
+    @Test fun popupScripts() {
+        assertTrue(BrowserRules.FIT_POPUPS_JS.contains(".cdk-overlay-pane"))
+        assertTrue(BrowserRules.FIT_POPUPS_JS.contains("max-width:96vw"))
+        assertTrue(BrowserRules.PAGE_CHECK_JS.contains("popups: "))
+        assertFalse(BrowserRules.PAGE_CHECK_JS.contains("\$"))
+    }
+
     @Test fun valuesAreQuotedSafely() {
         val js = BrowserRules.fillFocused("a'b\"c</script>\\", isPassword = true)
         assertTrue(js.contains("\"a'b\\\"c<\\/script>\\\\\""))

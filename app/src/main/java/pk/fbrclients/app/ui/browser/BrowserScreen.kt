@@ -223,10 +223,12 @@ fun BrowserScreen(
 
             override fun onPageCommitVisible(view: WebView, url: String) {
                 view.evaluateJavascript(BrowserRules.viewportJs(desktop), null)
+                view.evaluateJavascript(BrowserRules.FIT_POPUPS_JS, null)
             }
 
             override fun onPageFinished(view: WebView, url: String) {
                 view.evaluateJavascript(BrowserRules.viewportJs(desktop), null)
+                view.evaluateJavascript(BrowserRules.FIT_POPUPS_JS, null)
                 if (!isPopup) {
                     currentUrl = url
                     title = view.title.orEmpty()
@@ -335,6 +337,15 @@ fun BrowserScreen(
                 IconButton(onClick = { active()?.reload() }) { Icon(Icons.Filled.Refresh, contentDescription = "Reload") }
                 IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More") }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(text = { Text("Page check") }, onClick = {
+                        menu = false
+                        active()?.evaluateJavascript(BrowserRules.PAGE_CHECK_JS) { r ->
+                            // The result comes back as a JSON string.
+                            val text = runCatching { org.json.JSONArray("[$r]").getString(0) }.getOrDefault(r.orEmpty())
+                            log("Page check:\n$text")
+                            showProblems = true
+                        }
+                    })
                     DropdownMenuItem(text = { Text("Page problems (${problems.size})") }, onClick = {
                         menu = false
                         showProblems = true
@@ -456,7 +467,14 @@ fun BrowserScreen(
                 }
             },
             confirmButton = { TextButton(onClick = { showProblems = false }) { Text("Close") } },
-            dismissButton = { TextButton(onClick = { problems.clear() }) { Text("Clear") } },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        clipboardText(ctx, "Page problems", (listOf("Page: " + (active()?.url ?: currentUrl)) + problems).joinToString("\n\n"))
+                    }) { Text("Copy") }
+                    TextButton(onClick = { problems.clear() }) { Text("Clear") }
+                }
+            },
         )
     }
 }
@@ -488,4 +506,11 @@ private fun printPage(ctx: Context, wv: WebView, title: String) {
     val pm = ctx.getSystemService(PrintManager::class.java)
     val name = title.ifBlank { "FBR Clients page" }
     pm.print(name, wv.createPrintDocumentAdapter(name), PrintAttributes.Builder().build())
+}
+
+/** Plain (not sensitive) copy, for sending page details to support. */
+private fun clipboardText(ctx: Context, label: String, text: String) {
+    ctx.getSystemService(android.content.ClipboardManager::class.java)
+        .setPrimaryClip(android.content.ClipData.newPlainText(label, text))
+    Toast.makeText(ctx, "Copied", Toast.LENGTH_SHORT).show()
 }
