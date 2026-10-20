@@ -53,7 +53,7 @@ import pk.fbrclients.desktop.store.Settings
 import java.io.File
 import java.time.LocalDate
 
-private enum class Page(val title: String) { Main("Settings"), Sync("Sync with phone"), Categories("Categories"), Discos("Electricity companies"), Import("Import clients from Excel") }
+internal enum class Page(val title: String) { Main("Settings"), Sync("Sync with phone"), Categories("Categories"), Discos("Electricity companies"), Import("Import clients from Excel") }
 
 private val AUTO_LOCK = listOf(1, 5, 10, 15, 30, 60)
 
@@ -61,8 +61,8 @@ private val AUTO_LOCK = listOf(1, 5, 10, 15, 30, 60)
 val appVersion: String = System.getProperty("jpackage.app-version") ?: "dev"
 
 @Composable
-fun SettingsScreen(state: AppState) {
-    var page by remember { mutableStateOf(Page.Main) }
+internal fun SettingsScreen(state: AppState, initialPage: Page = Page.Main) {
+    var page by remember { mutableStateOf(initialPage) }
     Column(Modifier.fillMaxSize()) {
         PageBar(page.title, leading = {
             if (page != Page.Main) IconButton(onClick = { page = Page.Main }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }

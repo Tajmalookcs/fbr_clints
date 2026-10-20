@@ -62,7 +62,7 @@ import pk.fbrclients.desktop.platform.Clipboard
 private data class ItemTarget(val categoryId: Long, val item: WealthItem?)
 
 @Composable
-fun StatementScreen(state: AppState, statementId: Long) {
+fun StatementScreen(state: AppState, statementId: Long, initialTab: Int = 0) {
     val data = state.store.data
     val s = data.statements.firstOrNull { it.id == statementId }
     if (s == null) {
@@ -82,7 +82,7 @@ fun StatementScreen(state: AppState, statementId: Long) {
     }
     val recon = WealthMath.reconcile(assets, liabilities, s.prevYearNetAssets ?: prevNet ?: 0L, s)
 
-    var tab by remember { mutableIntStateOf(0) }
+    var tab by remember { mutableIntStateOf(initialTab) }
     var confirmDelete by remember { mutableStateOf(false) }
     var target by remember { mutableStateOf<ItemTarget?>(null) }
 

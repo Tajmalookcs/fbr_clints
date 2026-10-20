@@ -61,3 +61,8 @@ compose.desktop {
         }
     }
 }
+
+tasks.test {
+    // ScreenshotTest draws the screens into this folder when it is set (review builds).
+    inputs.property("screenshots", System.getenv("SCREENSHOTS_DIR") ?: "")
+}

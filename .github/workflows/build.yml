@@ -142,6 +142,34 @@ jobs:
           name: msi
           path: out/*.msi
 
+  # Pull requests only: pictures of the PC screens (made-up data) as a private draft release, for review.
+  screens:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v5
+      - name: Draw the screens
+        env:
+          SCREENSHOTS_DIR: ${{ runner.temp }}/screens
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon :desktop:test --tests pk.fbrclients.desktop.ScreenshotTest 2>&1 | tee "$RUNNER_TEMP/shots.log" || { scripts/report_errors.sh "$RUNNER_TEMP/shots.log"; exit 1; }
+          ls -l "$SCREENSHOTS_DIR"
+      - name: Save as draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | select(.draft and .name=="Review screens") | .id' |
+            while read -r id; do gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id"; done
+          gh release create "review-screens-${{ github.run_number }}" "$RUNNER_TEMP"/screens/*.png \
+            --draft --title "Review screens" --target "${{ github.event.pull_request.head.sha }}" --notes "Made-up data. Draft only."
+
   publish:
     needs: [build, windows]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
