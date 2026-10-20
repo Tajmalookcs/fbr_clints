@@ -51,23 +51,86 @@ class SchemaUpgradeTest {
         return out
     }
 
-    @Test fun upgradeFrom2MatchesCurrentSchema() {
-        val schema = currentSchema()
-        assertTrue("schema version", schema.getInt("version") >= 3)
-        val entities = schema.getJSONArray("entities").let { a -> (0 until a.length()).map { a.getJSONObject(it) } }
-        val newIn3 = setOf("electricity_bill", "disco")
+    private fun entities() = currentSchema().getJSONArray("entities").let { a -> (0 until a.length()).map { a.getJSONObject(it) } }
 
-        val fresh = db(createSql(entities))
-        val upgraded = db(createSql(entities.filter { it.getString("tableName") !in newIn3 }) + MigrationSql.v2to3)
+    /**
+     * Version 3 = the current tables without the sync columns, uid indices and sync_deleted.
+     * (Schemas are rebuilt on every CI run, so version 3 is derived from the current one.)
+     */
+    private fun v3Sql(): List<String> = entities().filter { it.getString("tableName") != "sync_deleted" }.flatMap { e ->
+        val table = e.getString("tableName")
+        val create = e.getString("createSql").replace("\${TABLE_NAME}", table)
+            .replace(Regex(",\\s*`uid` TEXT NOT NULL DEFAULT ''"), "")
+            .replace(Regex(",\\s*`updatedAt` INTEGER NOT NULL DEFAULT 0"), "")
+        val idx = e.optJSONArray("indices")
+        val indices = if (idx == null) emptyList() else (0 until idx.length()).map { idx.getJSONObject(it) }
+            .filter { it.getString("name") != "index_${table}_uid" }
+            .map { it.getString("createSql").replace("\${TABLE_NAME}", table) }
+        listOf(create) + indices
+    }
+
+    @Test fun upgradeFrom3MatchesCurrentSchema() {
+        val schema = currentSchema()
+        assertEquals(4, schema.getInt("version"))
+        val fresh = db(createSql(entities()))
+        val old = v3Sql()
+        assertTrue("v3 has no sync columns", old.none { "`uid`" in it || "updatedAt" in it })
+        val upgraded = db(old)
         upgraded.createStatement().use { st ->
-            DiscoSeed.insertSql.forEach { (sql, args) ->
-                val p = upgraded.prepareStatement(sql)
-                args.forEachIndexed { i, v -> p.setObject(i + 1, v) }
-                p.executeUpdate()
+            // Some version-3 data, including the built-in categories.
+            SeedData.CATEGORIES.forEachIndexed { i, r ->
+                st.execute("INSERT INTO category (id, code, name, grp, isProperty, sortOrder, builtIn, editable) VALUES (${i + 1}, NULL, '${r.name.replace("'", "''")}', '${r.group.name}', 0, ${i * 10}, 1, 0)")
             }
-            st.executeQuery("SELECT COUNT(*) FROM disco").use { r -> r.next(); assertEquals(DiscoSeed.ALL.size, r.getInt(1)) }
+            st.execute("INSERT INTO category (id, code, name, grp, isProperty, sortOrder, builtIn, editable) VALUES (50, '9999', 'Own category', 'OTHER', 0, 500, 0, 1)")
+            st.execute("INSERT INTO property_sub_type (id, categoryId, name) VALUES (1, 4, 'Flat'), (2, 4, 'Flat'), (3, 4, 'Shop')")
+            st.execute("INSERT INTO client (id, cnic, irisPassword, name, businessName, ntn, mobile, email, address, notes) VALUES (1, '12345-1234567-1', 'pw', 'Test', '', '', '', '', '', '')")
+            MigrationSql.v3to4.forEach(st::execute)
         }
         assertEquals(describe(fresh), describe(upgraded))
+        upgraded.createStatement().use { st ->
+            fun one(q: String) = st.executeQuery(q).use { r -> r.next(); r.getString(1) }
+            assertEquals("builtin-cat-4", one("SELECT uid FROM category WHERE id = 4"))
+            assertEquals(32, one("SELECT uid FROM category WHERE id = 50").length)
+            assertEquals("builtin-sub-3", one("SELECT uid FROM property_sub_type WHERE id = 1")) // Flat
+            assertEquals(32, one("SELECT uid FROM property_sub_type WHERE id = 2").length) // the duplicate gets its own
+            assertEquals(32, one("SELECT uid FROM client WHERE id = 1").length)
+            assertTrue(one("SELECT updatedAt FROM client WHERE id = 1").toLong() > 1_700_000_000_000)
+        }
+    }
+
+    @Test fun triggersKeepSyncFieldsRight() {
+        val c = db(createSql(entities()) + MigrationSql.triggers + MigrationSql.triggers) // twice: must be safe
+        c.createStatement().use { st ->
+            fun one(q: String) = st.executeQuery(q).use { r -> if (r.next()) r.getString(1) else null }
+            st.execute("INSERT INTO client (id, cnic, irisPassword, name, businessName, ntn, mobile, email, address, notes, uid, updatedAt) VALUES (1, '1234567', '', 'A', '', '', '', '', '', '', 'u1', 0)")
+            val t1 = one("SELECT updatedAt FROM client")!!.toLong()
+            assertTrue("insert sets the time", t1 > 1_700_000_000_000)
+
+            // Saving an old copy (updatedAt 0, a new uid) keeps the uid and moves the time on.
+            st.execute("UPDATE client SET name = 'B', uid = 'other', updatedAt = 0 WHERE id = 1")
+            assertEquals("u1", one("SELECT uid FROM client"))
+            assertTrue(one("SELECT updatedAt FROM client")!!.toLong() > t1)
+
+            // Sync writes a newer time itself: kept as is.
+            st.execute("UPDATE client SET name = 'C', updatedAt = 9000000000000 WHERE id = 1")
+            assertEquals("9000000000000", one("SELECT updatedAt FROM client"))
+
+            // A record without uid gets one.
+            st.execute("INSERT INTO client (id, cnic, irisPassword, name, businessName, ntn, mobile, email, address, notes) VALUES (2, '1234568', '', 'D', '', '', '', '', '', '')")
+            assertEquals(32, one("SELECT uid FROM client WHERE id = 2")!!.length)
+
+            // Deleting leaves a tombstone.
+            st.execute("DELETE FROM client WHERE id = 1")
+            assertEquals("client", one("SELECT kind FROM sync_deleted WHERE uid = 'u1'"))
+
+            // While sync applies changes, the triggers stay out of the way.
+            st.execute(MigrationSql.APPLYING_ON)
+            st.execute("INSERT INTO client (id, cnic, irisPassword, name, businessName, ntn, mobile, email, address, notes, uid, updatedAt) VALUES (3, '1234569', '', 'E', '', '', '', '', '', '', 'u3', 5)")
+            st.execute("DELETE FROM client WHERE id = 2")
+            st.execute(MigrationSql.APPLYING_OFF)
+            assertEquals("5", one("SELECT updatedAt FROM client WHERE id = 3"))
+            assertEquals("0", one("SELECT COUNT(*) FROM sync_deleted WHERE kind = 'client' AND uid <> 'u1'"))
+        }
     }
 
     @Test fun fescoLinksAreTheOwners() {

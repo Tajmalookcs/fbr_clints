@@ -36,17 +36,28 @@ abstract class BackupDao {
 
     /** Replaces everything on this phone with the backup, in one transaction. */
     @Transaction
-    open suspend fun replaceAll(d: BackupData) {
+    open suspend fun replaceAll(d: BackupData, now: Long = System.currentTimeMillis()) {
         clearBills(); clearItems(); clearStatements(); clearSubTypes(); clearCategories(); clearClients()
-        insertClients(d.clients)
-        insertCategories(d.categories)
-        insertSubTypes(d.subTypes)
-        insertStatements(d.statements)
-        insertItems(d.items)
-        insertBills(d.bills)
+        // The restored records count as changed now, so sync gives them to the other devices
+        // (and deletes there what this phone no longer has).
+        insertClients(d.clients.map { it.copy(updatedAt = now) })
+        insertCategories(d.categories.map { it.copy(updatedAt = now) })
+        insertSubTypes(d.subTypes.map { it.copy(updatedAt = now) })
+        insertStatements(d.statements.map { it.copy(updatedAt = now) })
+        insertItems(d.items.map { it.copy(updatedAt = now) })
+        insertBills(d.bills.map { it.copy(updatedAt = now) })
         if (d.discos.isNotEmpty()) {
             clearDiscos()
-            insertDiscos(d.discos)
+            insertDiscos(d.discos.map { it.copy(updatedAt = now) })
         }
+        forgetRestoredTombstones()
     }
+
+    /** Clearing the tables left tombstones; drop those of records that came back. */
+    @Query(
+        """DELETE FROM sync_deleted WHERE uid IN (SELECT uid FROM client UNION SELECT uid FROM category
+           UNION SELECT uid FROM property_sub_type UNION SELECT uid FROM wealth_statement
+           UNION SELECT uid FROM wealth_item UNION SELECT uid FROM electricity_bill)""",
+    )
+    abstract suspend fun forgetRestoredTombstones()
 }

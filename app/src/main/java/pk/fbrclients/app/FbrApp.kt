@@ -5,6 +5,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import pk.fbrclients.app.data.AppDatabase
 import pk.fbrclients.app.security.AppLock
 import pk.fbrclients.app.security.PinStore
+import pk.fbrclients.app.sync.SyncManager
 import pk.fbrclients.app.util.SecureClipboard
 
 class FbrApp : Application() {
@@ -13,6 +14,8 @@ class FbrApp : Application() {
     lateinit var appLock: AppLock
         private set
     lateinit var clipboard: SecureClipboard
+        private set
+    lateinit var sync: SyncManager
         private set
 
     /** Opened on first use (after unlock), not at app start. */
@@ -23,6 +26,8 @@ class FbrApp : Application() {
         pinStore = PinStore(this)
         appLock = AppLock(pinStore)
         clipboard = SecureClipboard(this)
+        sync = SyncManager(this)
         ProcessLifecycleOwner.get().lifecycle.addObserver(appLock)
+        ProcessLifecycleOwner.get().lifecycle.addObserver(sync)
     }
 }

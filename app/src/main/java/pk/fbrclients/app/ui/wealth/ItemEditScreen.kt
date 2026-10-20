@@ -49,6 +49,7 @@ import pk.fbrclients.app.data.Category
 import pk.fbrclients.app.data.PropertySubType
 import pk.fbrclients.app.data.WealthDao
 import pk.fbrclients.app.data.WealthItem
+import pk.fbrclients.app.data.newUid
 import pk.fbrclients.app.data.propertyDescription
 import pk.fbrclients.app.ui.clients.FbrTopBar
 import pk.fbrclients.app.ui.components.AmountField
@@ -191,6 +192,8 @@ class ItemEditViewModel(
             areaSarsahi = box(c, areaSarsahi), areaSft = box(c, areaSft), areaSqm = box(c, areaSqm),
             propertyAddress = if (c.isProperty) address.trim() else null,
             holderCnic = if (c.isHeldByOthers && holderCnic.isNotEmpty()) Formats.formatCnic(holderCnic) else null,
+            uid = original?.uid ?: newUid(),
+            updatedAt = original?.updatedAt ?: 0,
         )
         viewModelScope.launch {
             if (itemId == null) dao.insertItem(item) else dao.updateItem(item)

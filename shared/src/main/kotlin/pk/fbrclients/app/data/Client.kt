@@ -1,10 +1,11 @@
 package pk.fbrclients.app.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "client", indices = [Index(value = ["cnic"], unique = true)])
+@Entity(tableName = "client", indices = [Index(value = ["cnic"], unique = true), Index(value = ["uid"], unique = true)])
 data class Client(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     /**
@@ -22,4 +23,8 @@ data class Client(
     val email: String = "",
     val address: String = "",
     val notes: String = "",
+    /** Same on every device; used by sync. */
+    @ColumnInfo(defaultValue = "") val uid: String = newUid(),
+    /** Last change (ms since 1970). 0 = set by the database on save. */
+    @ColumnInfo(defaultValue = "0") val updatedAt: Long = 0,
 )

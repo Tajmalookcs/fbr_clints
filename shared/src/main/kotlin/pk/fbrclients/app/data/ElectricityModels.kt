@@ -1,5 +1,6 @@
 package pk.fbrclients.app.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -9,7 +10,7 @@ import androidx.room.PrimaryKey
 @Entity(
     tableName = "electricity_bill",
     foreignKeys = [ForeignKey(Client::class, ["id"], ["clientId"], onDelete = ForeignKey.CASCADE)],
-    indices = [Index("clientId")],
+    indices = [Index("clientId"), Index(value = ["uid"], unique = true)],
 )
 data class ElectricityBill(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -20,6 +21,10 @@ data class ElectricityBill(
     val referenceNo: String,
     /** Optional, e.g. "Shop, Main Bazar". */
     val label: String = "",
+    /** Same on every device; used by sync. */
+    @ColumnInfo(defaultValue = "") val uid: String = newUid(),
+    /** Last change (ms since 1970). 0 = set by the database on save. */
+    @ColumnInfo(defaultValue = "0") val updatedAt: Long = 0,
 )
 
 /** An electricity company with its bill and tax-certificate pages (editable in Settings). */
@@ -30,6 +35,8 @@ data class Disco(
     val billUrl: String,
     val certUrl: String,
     val sortOrder: Int,
+    /** Last change (ms since 1970). 0 = set by the database on save. */
+    @ColumnInfo(defaultValue = "0") val updatedAt: Long = 0,
 )
 
 object DiscoSeed {

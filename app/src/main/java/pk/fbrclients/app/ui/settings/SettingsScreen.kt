@@ -53,6 +53,7 @@ import pk.fbrclients.app.data.BackupJson
 import pk.fbrclients.app.ui.clients.FbrTopBar
 import pk.fbrclients.app.ui.components.Dropdown
 import pk.fbrclients.app.ui.components.MessageDialog
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.text.DateFormat
 import java.time.LocalDate
 import java.util.Date
@@ -68,6 +69,7 @@ fun SettingsScreen(
     onCategories: () -> Unit,
     onImport: () -> Unit,
     onDiscos: () -> Unit,
+    onSync: () -> Unit,
     onRestored: () -> Unit,
 ) {
     val ctx = LocalContext.current
@@ -155,6 +157,11 @@ fun SettingsScreen(
             SettingRow("Import clients from Excel", "Usernames (CNIC / NTN), passwords and details from an Excel .xlsx file", onClick = onImport)
 
             HorizontalDivider(Modifier.padding(top = 8.dp))
+            Section("PC")
+            val syncStatus by app.sync.status.collectAsStateWithLifecycle()
+            SettingRow("Sync with PC", syncSummary(syncStatus), onClick = onSync)
+
+            HorizontalDivider(Modifier.padding(top = 8.dp))
             Section("Backup")
             SettingRow(
                 "Back up now",
@@ -171,7 +178,7 @@ fun SettingsScreen(
 
             HorizontalDivider(Modifier.padding(top = 8.dp))
             Text(
-                "FBR Clients ${BuildConfig.VERSION_NAME} · works fully offline",
+                "FBR Clients ${BuildConfig.VERSION_NAME} · works offline; sync with your PC is optional",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(16.dp),
@@ -198,7 +205,9 @@ fun SettingsScreen(
     restoreUri?.let { uri ->
         PasswordDialog(
             title = "Restore backup",
-            text = "Everything on this phone (clients, statements, categories) will be replaced by the backup. Enter the backup's password.",
+            text = "Everything on this phone (clients, statements, categories) will be replaced by the backup." +
+                (if (app.sync.isSetUp) " Sync is on, so the data on your PC will be replaced too." else "") +
+                " Enter the backup's password.",
             confirmLabel = "Replace and restore",
             needConfirm = false,
             onDismiss = { restoreUri = null },
@@ -211,6 +220,7 @@ fun SettingsScreen(
                     busy = null
                     result.onSuccess { count ->
                         message = "Restored" to "$count clients restored from the backup."
+                        app.sync.requestSync()
                         onRestored()
                     }.onFailure {
                         message = "Restore failed" to when (it) {
@@ -268,7 +278,7 @@ private fun SettingRow(title: String, subtitle: String? = null, onClick: () -> U
 }
 
 @Composable
-private fun PasswordDialog(
+internal fun PasswordDialog(
     title: String,
     text: String,
     confirmLabel: String,
@@ -315,7 +325,7 @@ private fun PasswordDialog(
 }
 
 @Composable
-private fun BusyDialog(text: String) {
+internal fun BusyDialog(text: String) {
     AlertDialog(
         onDismissRequest = {},
         confirmButton = {},

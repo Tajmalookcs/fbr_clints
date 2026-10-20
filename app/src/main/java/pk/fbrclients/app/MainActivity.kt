@@ -5,6 +5,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,6 +37,8 @@ class MainActivity : FragmentActivity() {
                 // Nothing (not even the database) opens until the first unlock.
                 var unlockedOnce by remember { mutableStateOf(false) }
                 if (!locked) unlockedOnce = true
+                // Sync starts only after the first unlock.
+                LaunchedEffect(unlockedOnce) { if (unlockedOnce) app.sync.onUnlocked() }
 
                 if (!hasPin) {
                     SetupPinScreen(

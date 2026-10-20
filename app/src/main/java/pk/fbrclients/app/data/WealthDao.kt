@@ -110,7 +110,7 @@ abstract class WealthDao {
     open suspend fun createYear(clientId: Long, year: Int, copyFromStatementId: Long?): Long {
         val id = insertStatement(WealthStatement(clientId = clientId, taxYear = year))
         if (copyFromStatementId != null) {
-            insertItems(itemsOf(copyFromStatementId).map { it.copy(id = 0, statementId = id) })
+            insertItems(itemsOf(copyFromStatementId).map { it.copy(id = 0, statementId = id, uid = newUid(), updatedAt = 0) })
         }
         return id
     }

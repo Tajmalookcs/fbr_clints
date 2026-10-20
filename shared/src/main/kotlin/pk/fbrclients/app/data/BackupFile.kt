@@ -87,43 +87,13 @@ object BackupJson {
             .put("app", "FBR Clients")
             .put("format", FORMAT)
             .put("createdAt", createdAt)
-            .put("clients", JSONArray(d.clients.map { c ->
-                JSONObject().put("id", c.id).put("cnic", c.cnic).put("irisPassword", c.irisPassword).put("name", c.name)
-                    .put("businessName", c.businessName)
-                    .put("ntn", c.ntn).put("mobile", c.mobile).put("email", c.email).put("address", c.address).put("notes", c.notes)
-            }))
-            .put("categories", JSONArray(d.categories.map { c ->
-                JSONObject().put("id", c.id).put("code", c.code ?: JSONObject.NULL).put("name", c.name).put("group", c.group.name)
-                    .put("isProperty", c.isProperty).put("sortOrder", c.sortOrder).put("builtIn", c.builtIn).put("editable", c.editable)
-            }))
-            .put("subTypes", JSONArray(d.subTypes.map { s ->
-                JSONObject().put("id", s.id).put("categoryId", s.categoryId).put("name", s.name)
-            }))
-            .put("statements", JSONArray(d.statements.map { s ->
-                JSONObject().put("id", s.id).put("clientId", s.clientId).put("taxYear", s.taxYear)
-                    .put("prevYearNetAssets", s.prevYearNetAssets ?: JSONObject.NULL)
-                    .put("incomeNormal", s.incomeNormal).put("incomeExempt", s.incomeExempt)
-                    .put("incomeFinal", s.incomeFinal).put("personalExpenses", s.personalExpenses)
-            }))
-            .put("bills", JSONArray(d.bills.map { b ->
-                JSONObject().put("id", b.id).put("clientId", b.clientId).put("company", b.company)
-                    .put("referenceNo", b.referenceNo).put("label", b.label)
-            }))
-            .put("discos", JSONArray(d.discos.map { x ->
-                JSONObject().put("code", x.code).put("name", x.name).put("billUrl", x.billUrl)
-                    .put("certUrl", x.certUrl).put("sortOrder", x.sortOrder)
-            }))
-            .put("items", JSONArray(d.items.map { i ->
-                JSONObject().put("id", i.id).put("statementId", i.statementId).put("categoryId", i.categoryId)
-                    .put("description", i.description).put("amount", i.amount)
-                    .put("subType", i.subType ?: JSONObject.NULL).put("acquisitionDate", i.acquisitionDate ?: JSONObject.NULL)
-                    .put("areaUnit", i.areaUnit ?: JSONObject.NULL).put("area", i.area ?: JSONObject.NULL)
-                    .put("propertyAddress", i.propertyAddress ?: JSONObject.NULL)
-                    .put("holderCnic", i.holderCnic ?: JSONObject.NULL)
-                    .put("areaAcre", i.areaAcre ?: JSONObject.NULL).put("areaKanal", i.areaKanal ?: JSONObject.NULL)
-                    .put("areaMarla", i.areaMarla ?: JSONObject.NULL).put("areaSarsahi", i.areaSarsahi ?: JSONObject.NULL)
-                    .put("areaSft", i.areaSft ?: JSONObject.NULL).put("areaSqm", i.areaSqm ?: JSONObject.NULL)
-            }))
+            .put("clients", JSONArray(d.clients.map { RecordJson.client(it).put("id", it.id) }))
+            .put("categories", JSONArray(d.categories.map { RecordJson.category(it).put("id", it.id) }))
+            .put("subTypes", JSONArray(d.subTypes.map { RecordJson.subType(it).put("id", it.id).put("categoryId", it.categoryId) }))
+            .put("statements", JSONArray(d.statements.map { RecordJson.statement(it).put("id", it.id).put("clientId", it.clientId) }))
+            .put("bills", JSONArray(d.bills.map { RecordJson.bill(it).put("id", it.id).put("clientId", it.clientId) }))
+            .put("discos", JSONArray(d.discos.map { RecordJson.disco(it) }))
+            .put("items", JSONArray(d.items.map { RecordJson.item(it).put("id", it.id).put("statementId", it.statementId).put("categoryId", it.categoryId) }))
         return root.toString().toByteArray(Charsets.UTF_8)
     }
 
@@ -131,60 +101,118 @@ object BackupJson {
         val root = JSONObject(String(bytes, Charsets.UTF_8))
         if (root.optInt("format", -1) != FORMAT) throw BackupFile.NotABackupException()
         return BackupData(
-            clients = root.getJSONArray("clients").objects().map { o ->
-                Client(
-                    id = o.getLong("id"), cnic = o.getString("cnic"), irisPassword = o.getString("irisPassword"),
-                    name = o.getString("name"), businessName = o.optString("businessName", ""), ntn = o.getString("ntn"), mobile = o.getString("mobile"),
-                    email = o.getString("email"), address = o.getString("address"), notes = o.getString("notes"),
-                )
+            clients = root.getJSONArray("clients").objects().map { RecordJson.readClient(it).copy(id = it.getLong("id")) },
+            categories = root.getJSONArray("categories").objects().map { RecordJson.readCategory(it).copy(id = it.getLong("id")) },
+            subTypes = root.getJSONArray("subTypes").objects().map {
+                RecordJson.readSubType(it).copy(id = it.getLong("id"), categoryId = it.getLong("categoryId"))
             },
-            categories = root.getJSONArray("categories").objects().map { o ->
-                Category(
-                    id = o.getLong("id"), code = o.str("code"), name = o.getString("name"),
-                    group = AssetGroup.valueOf(o.getString("group")), isProperty = o.getBoolean("isProperty"),
-                    sortOrder = o.getInt("sortOrder"), builtIn = o.getBoolean("builtIn"), editable = o.getBoolean("editable"),
-                )
+            statements = root.getJSONArray("statements").objects().map {
+                RecordJson.readStatement(it).copy(id = it.getLong("id"), clientId = it.getLong("clientId"))
             },
-            subTypes = root.getJSONArray("subTypes").objects().map { o ->
-                PropertySubType(id = o.getLong("id"), categoryId = o.getLong("categoryId"), name = o.getString("name"))
+            items = root.getJSONArray("items").objects().map {
+                RecordJson.readItem(it).copy(id = it.getLong("id"), statementId = it.getLong("statementId"), categoryId = it.getLong("categoryId"))
             },
-            statements = root.getJSONArray("statements").objects().map { o ->
-                WealthStatement(
-                    id = o.getLong("id"), clientId = o.getLong("clientId"), taxYear = o.getInt("taxYear"),
-                    prevYearNetAssets = if (o.isNull("prevYearNetAssets")) null else o.getLong("prevYearNetAssets"),
-                    incomeNormal = o.getLong("incomeNormal"), incomeExempt = o.getLong("incomeExempt"),
-                    incomeFinal = o.getLong("incomeFinal"), personalExpenses = o.getLong("personalExpenses"),
-                )
+            bills = root.optJSONArray("bills")?.objects().orEmpty().map {
+                RecordJson.readBill(it).copy(id = it.getLong("id"), clientId = it.getLong("clientId"))
             },
-            items = root.getJSONArray("items").objects().map { o ->
-                WealthItem(
-                    id = o.getLong("id"), statementId = o.getLong("statementId"), categoryId = o.getLong("categoryId"),
-                    description = o.getString("description"), amount = o.getLong("amount"),
-                    subType = o.str("subType"), acquisitionDate = o.str("acquisitionDate"), areaUnit = o.str("areaUnit"),
-                    area = o.str("area"), propertyAddress = o.str("propertyAddress"),
-                    holderCnic = o.optText("holderCnic"),
-                    areaAcre = o.optText("areaAcre"), areaKanal = o.optText("areaKanal"), areaMarla = o.optText("areaMarla"),
-                    areaSarsahi = o.optText("areaSarsahi"), areaSft = o.optText("areaSft"), areaSqm = o.optText("areaSqm"),
-                )
-            },
-            bills = root.optJSONArray("bills")?.objects().orEmpty().map { o ->
-                ElectricityBill(
-                    id = o.getLong("id"), clientId = o.getLong("clientId"), company = o.getString("company"),
-                    referenceNo = o.getString("referenceNo"), label = o.getString("label"),
-                )
-            },
-            discos = root.optJSONArray("discos")?.objects().orEmpty().map { o ->
-                Disco(
-                    code = o.getString("code"), name = o.getString("name"), billUrl = o.getString("billUrl"),
-                    certUrl = o.getString("certUrl"), sortOrder = o.getInt("sortOrder"),
-                )
-            },
+            discos = root.optJSONArray("discos")?.objects().orEmpty().map { RecordJson.readDisco(it) },
         )
     }
+}
 
-    private fun JSONArray.objects(): List<JSONObject> = (0 until length()).map { getJSONObject(it) }
+internal fun JSONArray.objects(): List<JSONObject> = (0 until length()).map { getJSONObject(it) }
+
+/**
+ * The fields of each record, shared by the backup file and the sync file.
+ * Ids and links to other records are added by the caller (numbers in a backup, uids in sync).
+ * Records from backups made before sync existed get a new uid and updatedAt 0.
+ */
+object RecordJson {
     private fun JSONObject.str(k: String): String? = if (isNull(k)) null else getString(k)
 
-    /** Optional field (older backups may not have it). */
+    /** Optional field (older files may not have it). */
     private fun JSONObject.optText(k: String): String? = if (!has(k) || isNull(k)) null else getString(k)
+    private fun JSONObject.uid(): String = optText("uid")?.takeIf { it.isNotEmpty() } ?: newUid()
+    private fun JSONObject.updated(): Long = optLong("updatedAt", 0)
+    private fun JSONObject.stamp(uid: String, updatedAt: Long) = put("uid", uid).put("updatedAt", updatedAt)
+    private fun Any?.orNull(): Any = this ?: JSONObject.NULL
+
+    fun client(c: Client): JSONObject = JSONObject().put("cnic", c.cnic).put("irisPassword", c.irisPassword).put("name", c.name)
+        .put("businessName", c.businessName)
+        .put("ntn", c.ntn).put("mobile", c.mobile).put("email", c.email).put("address", c.address).put("notes", c.notes)
+        .stamp(c.uid, c.updatedAt)
+
+    fun readClient(o: JSONObject) = Client(
+        cnic = o.getString("cnic"), irisPassword = o.getString("irisPassword"),
+        name = o.getString("name"), businessName = o.optString("businessName", ""), ntn = o.getString("ntn"), mobile = o.getString("mobile"),
+        email = o.getString("email"), address = o.getString("address"), notes = o.getString("notes"),
+        uid = o.uid(), updatedAt = o.updated(),
+    )
+
+    fun category(c: Category): JSONObject = JSONObject().put("code", c.code.orNull()).put("name", c.name).put("group", c.group.name)
+        .put("isProperty", c.isProperty).put("sortOrder", c.sortOrder).put("builtIn", c.builtIn).put("editable", c.editable)
+        .stamp(c.uid, c.updatedAt)
+
+    fun readCategory(o: JSONObject) = Category(
+        code = o.str("code"), name = o.getString("name"),
+        group = AssetGroup.valueOf(o.getString("group")), isProperty = o.getBoolean("isProperty"),
+        sortOrder = o.getInt("sortOrder"), builtIn = o.getBoolean("builtIn"), editable = o.getBoolean("editable"),
+        uid = o.uid(), updatedAt = o.updated(),
+    )
+
+    fun subType(s: PropertySubType): JSONObject = JSONObject().put("name", s.name).stamp(s.uid, s.updatedAt)
+
+    fun readSubType(o: JSONObject) = PropertySubType(categoryId = 0, name = o.getString("name"), uid = o.uid(), updatedAt = o.updated())
+
+    fun statement(s: WealthStatement): JSONObject = JSONObject().put("taxYear", s.taxYear)
+        .put("prevYearNetAssets", s.prevYearNetAssets.orNull())
+        .put("incomeNormal", s.incomeNormal).put("incomeExempt", s.incomeExempt)
+        .put("incomeFinal", s.incomeFinal).put("personalExpenses", s.personalExpenses)
+        .stamp(s.uid, s.updatedAt)
+
+    fun readStatement(o: JSONObject) = WealthStatement(
+        clientId = 0, taxYear = o.getInt("taxYear"),
+        prevYearNetAssets = if (o.isNull("prevYearNetAssets")) null else o.getLong("prevYearNetAssets"),
+        incomeNormal = o.getLong("incomeNormal"), incomeExempt = o.getLong("incomeExempt"),
+        incomeFinal = o.getLong("incomeFinal"), personalExpenses = o.getLong("personalExpenses"),
+        uid = o.uid(), updatedAt = o.updated(),
+    )
+
+    fun item(i: WealthItem): JSONObject = JSONObject()
+        .put("description", i.description).put("amount", i.amount)
+        .put("subType", i.subType.orNull()).put("acquisitionDate", i.acquisitionDate.orNull())
+        .put("areaUnit", i.areaUnit.orNull()).put("area", i.area.orNull())
+        .put("propertyAddress", i.propertyAddress.orNull())
+        .put("holderCnic", i.holderCnic.orNull())
+        .put("areaAcre", i.areaAcre.orNull()).put("areaKanal", i.areaKanal.orNull())
+        .put("areaMarla", i.areaMarla.orNull()).put("areaSarsahi", i.areaSarsahi.orNull())
+        .put("areaSft", i.areaSft.orNull()).put("areaSqm", i.areaSqm.orNull())
+        .stamp(i.uid, i.updatedAt)
+
+    fun readItem(o: JSONObject) = WealthItem(
+        statementId = 0, categoryId = 0,
+        description = o.getString("description"), amount = o.getLong("amount"),
+        subType = o.str("subType"), acquisitionDate = o.str("acquisitionDate"), areaUnit = o.str("areaUnit"),
+        area = o.str("area"), propertyAddress = o.str("propertyAddress"),
+        holderCnic = o.optText("holderCnic"),
+        areaAcre = o.optText("areaAcre"), areaKanal = o.optText("areaKanal"), areaMarla = o.optText("areaMarla"),
+        areaSarsahi = o.optText("areaSarsahi"), areaSft = o.optText("areaSft"), areaSqm = o.optText("areaSqm"),
+        uid = o.uid(), updatedAt = o.updated(),
+    )
+
+    fun bill(b: ElectricityBill): JSONObject = JSONObject().put("company", b.company)
+        .put("referenceNo", b.referenceNo).put("label", b.label).stamp(b.uid, b.updatedAt)
+
+    fun readBill(o: JSONObject) = ElectricityBill(
+        clientId = 0, company = o.getString("company"), referenceNo = o.getString("referenceNo"), label = o.getString("label"),
+        uid = o.uid(), updatedAt = o.updated(),
+    )
+
+    fun disco(x: Disco): JSONObject = JSONObject().put("code", x.code).put("name", x.name).put("billUrl", x.billUrl)
+        .put("certUrl", x.certUrl).put("sortOrder", x.sortOrder).put("updatedAt", x.updatedAt)
+
+    fun readDisco(o: JSONObject) = Disco(
+        code = o.getString("code"), name = o.getString("name"), billUrl = o.getString("billUrl"),
+        certUrl = o.getString("certUrl"), sortOrder = o.getInt("sortOrder"), updatedAt = o.updated(),
+    )
 }

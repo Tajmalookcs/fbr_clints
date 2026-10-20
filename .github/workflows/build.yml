@@ -97,6 +97,12 @@ jobs:
           name: FBR-Clients-${{ env.VERSION_NAME }}
           path: out/*.apk
 
+      # The database schema Room wrote during the build (to keep in the repo).
+      - uses: actions/upload-artifact@v4
+        with:
+          name: room-schemas
+          path: app/schemas
+
       # A fixed "latest build" release gives the owner one link to open on the phone.
       - name: Publish latest build
         if: github.ref == 'refs/heads/main'

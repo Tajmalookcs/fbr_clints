@@ -22,7 +22,7 @@ enum class AssetGroup(val title: String, val isLiability: Boolean = false) {
  * [code] is null when the IRIS code is not known yet (the owner adds it in Settings).
  * Built-in categories keep their name; only [editable] ones let the code be changed.
  */
-@Entity(tableName = "category")
+@Entity(tableName = "category", indices = [Index(value = ["uid"], unique = true)])
 data class Category(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val code: String?,
@@ -32,6 +32,10 @@ data class Category(
     val sortOrder: Int = 0,
     val builtIn: Boolean = false,
     val editable: Boolean = true,
+    /** Same on every device; used by sync. */
+    @ColumnInfo(defaultValue = "") val uid: String = newUid(),
+    /** Last change (ms since 1970). 0 = set by the database on save. */
+    @ColumnInfo(defaultValue = "0") val updatedAt: Long = 0,
 ) {
     val isLiability get() = group.isLiability
 
@@ -45,18 +49,22 @@ data class Category(
 @Entity(
     tableName = "property_sub_type",
     foreignKeys = [ForeignKey(Category::class, ["id"], ["categoryId"], onDelete = ForeignKey.CASCADE)],
-    indices = [Index("categoryId")],
+    indices = [Index("categoryId"), Index(value = ["uid"], unique = true)],
 )
 data class PropertySubType(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val categoryId: Long,
     val name: String,
+    /** Same on every device; used by sync. */
+    @ColumnInfo(defaultValue = "") val uid: String = newUid(),
+    /** Last change (ms since 1970). 0 = set by the database on save. */
+    @ColumnInfo(defaultValue = "0") val updatedAt: Long = 0,
 )
 
 @Entity(
     tableName = "wealth_statement",
     foreignKeys = [ForeignKey(Client::class, ["id"], ["clientId"], onDelete = ForeignKey.CASCADE)],
-    indices = [Index(value = ["clientId", "taxYear"], unique = true)],
+    indices = [Index(value = ["clientId", "taxYear"], unique = true), Index(value = ["uid"], unique = true)],
 )
 data class WealthStatement(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -72,6 +80,10 @@ data class WealthStatement(
     val incomeFinal: Long = 0,
     /** 7087 (personal / household expenses) */
     val personalExpenses: Long = 0,
+    /** Same on every device; used by sync. */
+    @ColumnInfo(defaultValue = "") val uid: String = newUid(),
+    /** Last change (ms since 1970). 0 = set by the database on save. */
+    @ColumnInfo(defaultValue = "0") val updatedAt: Long = 0,
 )
 
 @Entity(
@@ -80,7 +92,7 @@ data class WealthStatement(
         ForeignKey(WealthStatement::class, ["id"], ["statementId"], onDelete = ForeignKey.CASCADE),
         ForeignKey(Category::class, ["id"], ["categoryId"], onDelete = ForeignKey.RESTRICT),
     ],
-    indices = [Index("statementId"), Index("categoryId")],
+    indices = [Index("statementId"), Index("categoryId"), Index(value = ["uid"], unique = true)],
 )
 data class WealthItem(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -107,6 +119,10 @@ data class WealthItem(
     val propertyAddress: String? = null,
     /** 7014 only: CNIC of the person the asset is held by (12345-1234567-1). */
     val holderCnic: String? = null,
+    /** Same on every device; used by sync. */
+    @ColumnInfo(defaultValue = "") val uid: String = newUid(),
+    /** Last change (ms since 1970). 0 = set by the database on save. */
+    @ColumnInfo(defaultValue = "0") val updatedAt: Long = 0,
 )
 
 /** "[Type] – [Sub-type], [Area] [Unit], [Property Address]" */

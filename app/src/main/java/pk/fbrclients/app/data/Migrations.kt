@@ -22,10 +22,109 @@ object Migrations {
         }
     }
 
-    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+    val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            MigrationSql.v3to4.forEach(db::execSQL)
+        }
+    }
+
+    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
 }
 
 object MigrationSql {
+    /** Tables whose records sync between devices, with the kind written in their tombstones. */
+    val SYNCED_TABLES = listOf(
+        "client" to Kind.CLIENT,
+        "category" to Kind.CATEGORY,
+        "property_sub_type" to Kind.SUB_TYPE,
+        "wealth_statement" to Kind.STATEMENT,
+        "wealth_item" to Kind.ITEM,
+        "electricity_bill" to Kind.BILL,
+    )
+
+    /** Now, in milliseconds since 1970, inside SQLite. */
+    private const val NOW = "CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)"
+
+    /**
+     * 3 -> 4: sync. Every record gets a uid (the same on every device) and the time
+     * of its last change; deleted records are remembered in sync_deleted.
+     * Built-in categories and sub-types get fixed uids, so all devices share them.
+     */
+    val v3to4: List<String> = buildList {
+        for ((t, _) in SYNCED_TABLES) {
+            add("ALTER TABLE `$t` ADD COLUMN `uid` TEXT NOT NULL DEFAULT ''")
+            add("ALTER TABLE `$t` ADD COLUMN `updatedAt` INTEGER NOT NULL DEFAULT 0")
+        }
+        add("ALTER TABLE `disco` ADD COLUMN `updatedAt` INTEGER NOT NULL DEFAULT 0")
+        SeedData.CATEGORIES.forEachIndexed { i, r ->
+            add("UPDATE category SET uid = '${BuiltInUids.category(i)}' WHERE builtIn = 1 AND name = ${sqlText(r.name)} AND uid = ''")
+        }
+        SeedData.RESIDENTIAL_SUB_TYPES.forEachIndexed { i, name ->
+            add(
+                "UPDATE property_sub_type SET uid = '${BuiltInUids.subType(i)}' WHERE id = (SELECT MIN(s.id) FROM property_sub_type s " +
+                    "JOIN category c ON c.id = s.categoryId WHERE c.uid = '${BuiltInUids.category(RESIDENTIAL_INDEX)}' AND s.name = ${sqlText(name)})",
+            )
+        }
+        for ((t, _) in SYNCED_TABLES) {
+            add("UPDATE `$t` SET uid = lower(hex(randomblob(16))) WHERE uid = ''")
+            add("UPDATE `$t` SET updatedAt = $NOW")
+            add("CREATE UNIQUE INDEX IF NOT EXISTS `index_${t}_uid` ON `$t` (`uid`)")
+        }
+        add("UPDATE `disco` SET updatedAt = $NOW")
+        add(
+            "CREATE TABLE IF NOT EXISTS `sync_deleted` (`uid` TEXT NOT NULL, `kind` TEXT NOT NULL, `deletedAt` INTEGER NOT NULL, " +
+                "`replacedBy` TEXT, PRIMARY KEY(`uid`))",
+        )
+    }
+
+    /** Seed index of Residential Property (its sub-types are built in). */
+    val RESIDENTIAL_INDEX = SeedData.CATEGORIES.indexOfFirst { it.code == "7109" }
+
+    private fun sqlText(s: String) = "'" + s.replace("'", "''") + "'"
+
+    const val APPLYING_ON = "UPDATE sync_control SET applying = 1"
+    const val APPLYING_OFF = "UPDATE sync_control SET applying = 0"
+
+    /**
+     * Keep uid and updatedAt right however a record is saved (run every time the
+     * database opens; "IF NOT EXISTS" makes that safe):
+     *  - a new record gets the current time (and a uid if it has none);
+     *  - a changed record gets the current time, unless sync already set a newer one;
+     *  - a record's uid never changes;
+     *  - a deleted record leaves a tombstone, so the deletion reaches the other devices.
+     * While sync writes what came from the other devices, sync_control.applying is 1
+     * and these triggers stay out of the way (sync sets the times and tombstones itself).
+     */
+    val triggers: List<String> = buildList {
+        add("CREATE TABLE IF NOT EXISTS sync_control (id INTEGER PRIMARY KEY NOT NULL, applying INTEGER NOT NULL)")
+        add("INSERT OR IGNORE INTO sync_control (id, applying) VALUES (1, 0)")
+        add("UPDATE sync_control SET applying = 0")
+        val notSyncing = "(SELECT applying FROM sync_control WHERE id = 1) = 0"
+        for ((t, kind) in SYNCED_TABLES) {
+            add(
+                "CREATE TRIGGER IF NOT EXISTS `sync_${t}_insert` AFTER INSERT ON `$t` WHEN (NEW.updatedAt = 0 OR NEW.uid = '') AND $notSyncing BEGIN " +
+                    "UPDATE `$t` SET updatedAt = CASE WHEN NEW.updatedAt = 0 THEN $NOW ELSE NEW.updatedAt END, " +
+                    "uid = CASE WHEN NEW.uid = '' THEN lower(hex(randomblob(16))) ELSE NEW.uid END WHERE rowid = NEW.rowid; END",
+            )
+            add(
+                "CREATE TRIGGER IF NOT EXISTS `sync_${t}_update` AFTER UPDATE ON `$t` WHEN NEW.updatedAt <= OLD.updatedAt AND $notSyncing BEGIN " +
+                    "UPDATE `$t` SET updatedAt = MAX($NOW, OLD.updatedAt + 1) WHERE rowid = NEW.rowid; END",
+            )
+            add(
+                "CREATE TRIGGER IF NOT EXISTS `sync_${t}_keep_uid` AFTER UPDATE OF uid ON `$t` WHEN OLD.uid <> '' AND NEW.uid <> OLD.uid BEGIN " +
+                    "UPDATE `$t` SET uid = OLD.uid WHERE rowid = NEW.rowid; END",
+            )
+            add(
+                "CREATE TRIGGER IF NOT EXISTS `sync_${t}_delete` AFTER DELETE ON `$t` WHEN $notSyncing BEGIN " +
+                    "INSERT OR REPLACE INTO sync_deleted (uid, kind, deletedAt, replacedBy) VALUES (OLD.uid, '$kind', $NOW, NULL); END",
+            )
+        }
+        add(
+            "CREATE TRIGGER IF NOT EXISTS `sync_disco_update` AFTER UPDATE ON `disco` WHEN NEW.updatedAt <= OLD.updatedAt AND $notSyncing BEGIN " +
+                "UPDATE `disco` SET updatedAt = MAX($NOW, OLD.updatedAt + 1) WHERE rowid = NEW.rowid; END",
+        )
+    }
+
     /** 2 -> 3: electricity bills per client, and electricity companies with their links. */
     val v2to3: List<String> = listOf(
         "CREATE TABLE IF NOT EXISTS `electricity_bill` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `clientId` INTEGER NOT NULL, " +

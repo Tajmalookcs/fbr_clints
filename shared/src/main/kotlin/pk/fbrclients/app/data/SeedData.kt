@@ -35,6 +35,14 @@ object SeedData {
     /** The built-in categories as records (ids 1, 2, 3 … in this order). */
     fun categories(): List<Category> = CATEGORIES.mapIndexed { i, r ->
         Category(id = i + 1L, code = r.code, name = r.name, group = r.group, isProperty = r.isProperty,
-            sortOrder = (i + 1) * 10, builtIn = true, editable = r.editable)
+            sortOrder = (i + 1) * 10, builtIn = true, editable = r.editable, uid = BuiltInUids.category(i))
+    }
+
+    /** The built-in sub-types, for [categories] (ids 1, 2, 3 …). */
+    fun subTypes(): List<PropertySubType> {
+        val residential = CATEGORIES.indexOfFirst { it.code == "7109" } + 1L
+        return RESIDENTIAL_SUB_TYPES.mapIndexed { i, name ->
+            PropertySubType(id = i + 1L, categoryId = residential, name = name, uid = BuiltInUids.subType(i))
+        }
     }
 }
