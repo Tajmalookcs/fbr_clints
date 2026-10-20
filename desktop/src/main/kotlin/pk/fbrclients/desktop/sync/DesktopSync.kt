@@ -17,7 +17,6 @@ import pk.fbrclients.app.data.BackupFile
 import pk.fbrclients.app.data.sync.SyncEngine
 import pk.fbrclients.app.data.sync.SyncFile
 import pk.fbrclients.app.data.sync.SyncSet
-import pk.fbrclients.desktop.platform.writeAtomically
 import pk.fbrclients.desktop.store.DataStore
 import pk.fbrclients.desktop.store.Settings
 import java.io.File
@@ -126,7 +125,9 @@ class DesktopSync(private val store: DataStore, private val settings: Settings) 
                     Triple(r.newLocal, r.merged.deleted, r)
                 }
                 if (result.writeRemote || replaceFile) {
-                    writeAtomically(f, SyncFile.write(result.merged, pw, "pc"))
+                    // Written in place (not via a temporary file + rename), so Google Drive keeps it
+                    // as the same file and the phone's link to it stays valid.
+                    f.writeBytes(SyncFile.write(result.merged, pw, "pc"))
                 }
                 val n = result.diff.size
                 done(if (n == 0) "Up to date" else "$n change${if (n == 1) "" else "s"} from the phone")
