@@ -19,6 +19,8 @@ sqliteJdbc = "3.46.1.3"
 composeMultiplatform = "1.7.3"
 coroutines = "1.8.1"
 jna = "5.15.0"
+jcefmaven = "146.0.10"
+jcefNatives = "jcef-d3de827+cef-146.0.10+g8219561+chromium-146.0.7680.179"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -46,6 +48,8 @@ sqlite-jdbc = { group = "org.xerial", name = "sqlite-jdbc", version.ref = "sqlit
 androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "webkit" }
 kotlinx-coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-swing", version.ref = "coroutines" }
 jna-platform = { group = "net.java.dev.jna", name = "jna-platform", version.ref = "jna" }
+jcefmaven = { group = "me.friwi", name = "jcefmaven", version.ref = "jcefmaven" }
+jcef-natives-windows = { group = "me.friwi", name = "jcef-natives-windows-amd64", version.ref = "jcefNatives" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 
 [plugins]

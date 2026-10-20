@@ -28,6 +28,10 @@ dependencies {
     implementation(libs.orgjson)
     // Windows data protection (DPAPI) for the keys, through JNA.
     implementation(libs.jna.platform)
+    // In-app browser: Chromium (CEF) for Java. The Windows engine (~160 MB) goes into
+    // the installer only when building on Windows; it is unpacked on first use.
+    implementation(libs.jcefmaven)
+    if (System.getProperty("os.name").lowercase().startsWith("windows")) runtimeOnly(libs.jcef.natives.windows)
 
     testImplementation(libs.junit)
 }
@@ -40,7 +44,13 @@ val msiVersion = releaseVersion.split(".").let { p -> "${p[0]}.${p.getOrElse(1) 
 compose.desktop {
     application {
         mainClass = "pk.fbrclients.desktop.MainKt"
-        jvmArgs += listOf("-Dfile.encoding=UTF-8")
+        jvmArgs += listOf(
+            "-Dfile.encoding=UTF-8",
+            // Needed by the Chromium browser on newer Java.
+            "--add-opens=java.desktop/sun.awt=ALL-UNNAMED",
+            "--add-opens=java.desktop/java.awt.peer=ALL-UNNAMED",
+            "--add-opens=java.desktop/sun.awt.windows=ALL-UNNAMED",
+        )
         nativeDistributions {
             targetFormats(TargetFormat.Msi)
             packageName = "FBR Clients"
@@ -48,7 +58,7 @@ compose.desktop {
             description = "FBR Clients for Windows"
             vendor = "FBR Clients"
             // Modules the app needs from Java (crypto, XML for Excel files, desktop).
-            modules("java.xml", "java.naming", "jdk.unsupported", "jdk.crypto.ec", "java.management")
+            modules("java.xml", "java.naming", "jdk.unsupported", "jdk.crypto.ec", "java.management", "java.logging", "java.sql")
             windows {
                 menuGroup = "FBR Clients"
                 shortcut = true
