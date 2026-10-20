@@ -170,6 +170,11 @@ object AppBrowser {
         val browser = client.createBrowser(r.url, false, false)
         val frame = JFrame("FBR Clients · " + r.title)
         client.addDisplayHandler(object : CefDisplayHandlerAdapter() {
+            // IRIS changes page without reloading (e.g. Home → Login): fill again.
+            override fun onAddressChange(b: CefBrowser, f: CefFrame?, url: String?) {
+                if (f == null || f.isMain) autoFill(b)
+            }
+
             override fun onTitleChange(b: CefBrowser, title: String?) {
                 if (b === browser) SwingUtilities.invokeLater { frame.title = "FBR Clients · " + r.title + (title?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: "") }
             }
