@@ -75,4 +75,11 @@ compose.desktop {
 tasks.test {
     // ScreenshotTest draws the screens into this folder when it is set (review builds).
     inputs.property("screenshots", System.getenv("SCREENSHOTS_DIR") ?: "")
+    // BrowserSmokeTest opens the real browser on the Windows review build.
+    inputs.property("browserSmoke", System.getenv("BROWSER_SMOKE_DIR") ?: "")
+    jvmArgs(
+        "--add-opens=java.desktop/sun.awt=ALL-UNNAMED",
+        "--add-opens=java.desktop/java.awt.peer=ALL-UNNAMED",
+        "--add-opens=java.desktop/sun.awt.windows=ALL-UNNAMED",
+    )
 }
