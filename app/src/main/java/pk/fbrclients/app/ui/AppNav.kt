@@ -21,6 +21,7 @@ import pk.fbrclients.app.ui.settings.DiscosScreen
 import pk.fbrclients.app.ui.settings.ImportScreen
 import pk.fbrclients.app.ui.settings.ImportViewModel
 import pk.fbrclients.app.ui.settings.SettingsScreen
+import pk.fbrclients.app.ui.settings.SyncScreen
 import pk.fbrclients.app.ui.wealth.ItemEditScreen
 import pk.fbrclients.app.ui.wealth.ItemEditViewModel
 import pk.fbrclients.app.ui.wealth.StatementScreen
@@ -111,6 +112,7 @@ fun AppNav(app: FbrApp) {
                 onCategories = { nav.navigate("settings/categories") },
                 onImport = { nav.navigate("settings/import") },
                 onDiscos = { nav.navigate("settings/discos") },
+                onSync = { nav.navigate("settings/sync") },
                 onRestored = { /* Data changed underneath every screen: stay here; lists refresh on their own. */ },
             )
         }
@@ -140,6 +142,9 @@ fun AppNav(app: FbrApp) {
         }
         composable("settings/import") {
             ImportScreen(vm = viewModel { ImportViewModel(app) }, onBack = { nav.popBackStack() })
+        }
+        composable("settings/sync") {
+            SyncScreen(app, onBack = { nav.popBackStack() })
         }
         composable("settings/categories") {
             CategoriesScreen(wealth, onBack = { nav.popBackStack() })

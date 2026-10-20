@@ -38,6 +38,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 import pk.fbrclients.app.data.Client
+import pk.fbrclients.app.data.newUid
 import pk.fbrclients.app.data.ClientDao
 import pk.fbrclients.app.util.DashTransformation
 import pk.fbrclients.app.util.Formats
@@ -118,6 +119,8 @@ class ClientEditViewModel(private val dao: ClientDao, private val id: Long?) : V
                 email = email.trim(),
                 address = address.trim(),
                 notes = notes.trim(),
+                uid = original?.uid ?: newUid(),
+                updatedAt = original?.updatedAt ?: 0,
             )
             val savedId = if (id == null) dao.insert(c) else { dao.update(c); id }
             saving = false

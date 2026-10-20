@@ -3,6 +3,7 @@
 Status: **Design approved by the owner on 2026-10-16. All build-plan steps implemented (2026-10-16).**
 
 Small additions made during the build (not in the original design):
+- **Windows PC app and phone ↔ PC sync** (owner approved the plan, 2026-10-20): see §8 and §9. Database schema version 4.
 - Clients and Wealth Statements can be deleted (with a confirmation).
 - In the property form, a missing sub-type can be added straight from the sub-type list.
 - Assets / Liabilities tabs show only group headings with one Add button that opens a list of types; categories appear once they have items (owner, 2026-10-17).
@@ -25,8 +26,8 @@ An offline Android app for one tax practitioner. It keeps clients' IRIS login de
 
 | Topic | Decision |
 |---|---|
-| Users | One person, one phone |
-| Connectivity | Offline database; no server or cloud sync. Internet is used **only** by the in-app browser for IRIS and the bill / tax-certificate sites |
+| Users | One person, one phone, and optionally one Windows PC (§8) |
+| Connectivity | Offline database; no server. Optional sync with the PC through one encrypted file in the owner's Google Drive (§9). Internet is otherwise used **only** by the in-app browser for IRIS and the bill / tax-certificate sites |
 | Backup | Encrypted backup file with its own password; restore on any phone |
 | Language / stack | Kotlin, Jetpack Compose, Room (encrypted with SQLCipher), BiometricPrompt |
 | Min Android | 8.0 (API 26) |
@@ -149,6 +150,7 @@ Items may have **amount 0** (e.g. inherited or dowry items).
 
 ## 5. Data model (Room)
 
+- Every synced record also has **uid** and **updatedAt** (§9); deletions are kept in **sync_deleted** (uid, kind, deletedAt, replacedBy).
 - **Client**: id, cnic (IRIS username: CNIC or NTN), irisPassword, name, businessName, ntn, mobile, email, address, notes
 - **WealthStatement**: id, clientId, taxYear, prevYearNetAssets, incomeNormal (7031), incomeExempt (7032), incomeFinal (7033), personalExpenses (7087)
 - **Category**: code, name, group, kind (asset / liability), isProperty, sortOrder, editable
@@ -174,3 +176,24 @@ Items may have **amount 0** (e.g. inherited or dowry items).
 5. Release APK that the owner installs on their phone
 
 There is no local Android Studio. The **APK is built by GitHub Actions** and published as a downloadable artifact/release, so the owner can install it from their phone.
+
+
+## 8. Windows PC app (owner, 2026-10-20)
+
+- A normal Windows program (not a web app), installed from an `.msi` file built by GitHub Actions next to the APK (latest build / release page). Windows 10 and 11.
+- Same features and checks as the phone: clients (list, search, detail, add / edit / delete), Wealth Statement (assets, liabilities, reconciliation, property form with land-area boxes, 7014 holder CNIC), electricity bills, categories and sub-types, electricity-company links, Excel .xlsx import, `.fbrbak` backup and restore (the same files as the phone).
+- **Lock:** a PIN (4–8 digits, same pause after wrong tries); locks after 1–60 minutes without use (default 5) and with the Lock button.
+- **Data:** one encrypted file in `%APPDATA%\FBR Clients` (AES-256-GCM). Its key, the PIN hash and the sync password are locked to the Windows user with Windows data protection (DPAPI).
+- **IRIS on the PC:** Open IRIS opens the default browser and copies the password, then the username, so Ctrl+V pastes the username and Windows key + V shows the password as the 2nd item. Check bill / Tax certificate copy the reference number and open the page. The PC app does not fill web pages itself (that would need a browser extension).
+- Built with Kotlin + Compose for Desktop. Code shared with the phone: `shared/` (formats, maths, land area, models, import, backup, sync, PIN hashing) and `shared-ui/` (amount field, dropdown, dialogs).
+
+## 9. Sync between phone and PC (owner, 2026-10-20)
+
+- One sync file (`FBR-Clients.fbrsync`) in the owner's Google Drive. The phone opens it through Android's file picker (Google Drive appears there); the PC uses the Google Drive for Desktop folder. No Google sign-in or keys inside the app.
+- The file is encrypted like a backup (AES-256-GCM, key from the **sync password** with PBKDF2, 310,000 rounds); Google only stores scrambled data. The sync password is typed once per device and kept locked (Android Keystore / Windows DPAPI). A backup restore refuses a sync file and the other way round.
+- Each device keeps all its data and works offline. Sync runs after unlocking, every 5 minutes while the app is open, when it is closed / goes to the background, and with **Sync now**.
+- Every record has a **uid** (the same on every device) and the time of its last change; deletions leave a tombstone. Merging: the newest change of each record wins; deletions spread; two clients with the same username are joined (the newest is kept, its statements and bills move over); two statements of the same client and tax year are joined (all items kept); a deleted category still used by an item is kept. The merge gives the same result on every device.
+- Copies that Google Drive may make when both write at once (`FBR-Clients (1).fbrsync`) are read too, so nothing is lost.
+- If the file can't be read (wrong password or damaged), the device says so and offers "Choose the sync file again" or "Replace the sync file with this device's data".
+- Restoring a backup with sync on replaces the data on the other device too (the app warns first).
+- Database (phone) **version 4**: columns `uid` and `updatedAt` on every synced table, table `sync_deleted` (tombstones); SQLite triggers keep them right on every save (see `data/Migrations.kt`). The upgrade from version 3 keeps all data and gives the built-in categories and sub-types fixed uids so both devices share them.

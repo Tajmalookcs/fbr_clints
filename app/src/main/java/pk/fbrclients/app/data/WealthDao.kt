@@ -1,12 +1,19 @@
 package pk.fbrclients.app.data
 
 import androidx.room.Dao
+import androidx.room.Embedded
 import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
+
+/** A statement with its net assets, for the list on the client page. */
+data class StatementSummary(
+    @Embedded val statement: WealthStatement,
+    val netAssets: Long,
+)
 
 @Dao
 abstract class WealthDao {
@@ -103,7 +110,7 @@ abstract class WealthDao {
     open suspend fun createYear(clientId: Long, year: Int, copyFromStatementId: Long?): Long {
         val id = insertStatement(WealthStatement(clientId = clientId, taxYear = year))
         if (copyFromStatementId != null) {
-            insertItems(itemsOf(copyFromStatementId).map { it.copy(id = 0, statementId = id) })
+            insertItems(itemsOf(copyFromStatementId).map { it.copy(id = 0, statementId = id, uid = newUid(), updatedAt = 0) })
         }
         return id
     }

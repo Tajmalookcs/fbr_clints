@@ -172,17 +172,17 @@ class ClientImportTest {
     }
 
     @Test fun onlyXlsxIsAccepted() {
-        assertTrue(pk.fbrclients.app.ui.settings.ImportRules.isXlsxName("Clients Data 2.xlsx"))
-        assertTrue(pk.fbrclients.app.ui.settings.ImportRules.isXlsxName("CLIENTS.XLSX"))
-        assertTrue(!pk.fbrclients.app.ui.settings.ImportRules.isXlsxName("clients.csv"))
-        assertTrue(!pk.fbrclients.app.ui.settings.ImportRules.isXlsxName("FBR-Clients-2026-10-20.fbrbak"))
-        assertTrue(pk.fbrclients.app.ui.settings.ImportRules.wrongFileMessage("x.fbrbak").contains("Restore"))
-        assertTrue(pk.fbrclients.app.ui.settings.ImportRules.isZip("PK\u0003\u0004rest".toByteArray()))
-        assertTrue(!pk.fbrclients.app.ui.settings.ImportRules.isZip("Username,Password".toByteArray()))
+        assertTrue(ImportRules.isXlsxName("Clients Data 2.xlsx"))
+        assertTrue(ImportRules.isXlsxName("CLIENTS.XLSX"))
+        assertTrue(!ImportRules.isXlsxName("clients.csv"))
+        assertTrue(!ImportRules.isXlsxName("FBR-Clients-2026-10-20.fbrbak"))
+        assertTrue(ImportRules.wrongFileMessage("x.fbrbak").contains("Restore"))
+        assertTrue(ImportRules.isZip("PK\u0003\u0004rest".toByteArray()))
+        assertTrue(!ImportRules.isZip("Username,Password".toByteArray()))
     }
 
     @Test fun xlsxIsFoundByContentNotName() {
-        val r = pk.fbrclients.app.ui.settings.ImportRules
+        val r = ImportRules
         val xlsx = zip("[Content_Types].xml" to "<Types/>", "xl/workbook.xml" to "<workbook/>")
         assertTrue(r.isXlsxWorkbook(xlsx)) // works even if the phone gives no ".xlsx" name
         assertTrue(!r.isOtherKnownFile("Clients Data 2"))

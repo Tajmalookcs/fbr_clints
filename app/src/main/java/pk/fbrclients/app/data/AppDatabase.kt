@@ -18,9 +18,9 @@ import java.security.SecureRandom
 @Database(
     entities = [
         Client::class, Category::class, PropertySubType::class, WealthStatement::class, WealthItem::class,
-        ElectricityBill::class, Disco::class,
+        ElectricityBill::class, Disco::class, Tombstone::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -28,6 +28,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun wealth(): WealthDao
     abstract fun backup(): BackupDao
     abstract fun electricity(): ElectricityDao
+    abstract fun sync(): SyncDao
 
     companion object {
         private const val FILE = "fbr_clients.db"
@@ -41,6 +42,9 @@ abstract class AppDatabase : RoomDatabase() {
                 .addMigrations(*Migrations.ALL)
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) = Seed.insert(db)
+
+                    // Sync triggers (see MigrationSql.triggers); safe to run every time.
+                    override fun onOpen(db: SupportSQLiteDatabase) = MigrationSql.triggers.forEach(db::execSQL)
                 })
                 .build()
         }

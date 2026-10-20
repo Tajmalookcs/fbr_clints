@@ -16,6 +16,11 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    outputs:
+      version_name: ${{ steps.version.outputs.version_name }}
+      release_version: ${{ steps.version.outputs.release_version }}
+      is_release: ${{ steps.version.outputs.is_release }}
+      signed: ${{ steps.name.outputs.signed }}
     env:
       BUILD_NUMBER: ${{ github.run_number }}
     steps:
@@ -25,6 +30,7 @@ jobs:
       # main publishes release v<version> once; every other build is a test
       # build named <version>-build<N>. To release again, bump version.txt.
       - name: Version
+        id: version
         env:
           GH_TOKEN: ${{ github.token }}
           HAS_SEED: ${{ secrets.SIGNING_SEED != '' }}
@@ -39,6 +45,11 @@ jobs:
           echo "RELEASE_VERSION=$V" >> "$GITHUB_ENV"
           echo "IS_RELEASE=$IS_RELEASE" >> "$GITHUB_ENV"
           echo "VERSION_NAME=$VN" >> "$GITHUB_ENV"
+          {
+            echo "version_name=$VN"
+            echo "release_version=$V"
+            echo "is_release=$IS_RELEASE"
+          } >> "$GITHUB_OUTPUT"
           echo "Version $VN (release: $IS_RELEASE)"
 
       - uses: actions/setup-java@v5
@@ -51,7 +62,7 @@ jobs:
       - name: Unit tests
         run: |
           set -o pipefail
-          ./gradlew --no-daemon testDebugUnitTest 2>&1 | tee "$RUNNER_TEMP/test.log" || { scripts/report_errors.sh "$RUNNER_TEMP/test.log"; exit 1; }
+          ./gradlew --no-daemon :shared:test :desktop:test testDebugUnitTest 2>&1 | tee "$RUNNER_TEMP/test.log" || { scripts/report_errors.sh "$RUNNER_TEMP/test.log"; exit 1; }
 
       # The signing key is rebuilt from one GitHub Secret (SIGNING_SEED).
       # Nothing secret is stored in the repo. See scripts/derive_keystore.py.
@@ -86,7 +97,9 @@ jobs:
           ./gradlew --no-daemon assembleRelease 2>&1 | tee "$RUNNER_TEMP/build.log" || { scripts/report_errors.sh "$RUNNER_TEMP/build.log"; exit 1; }
 
       - name: Name the APK
+        id: name
         run: |
+          echo "signed=$SIGNED" >> "$GITHUB_OUTPUT"
           rm -f "$RUNNER_TEMP/release.p12"
           mkdir -p out
           SUFFIX=""; [ "$SIGNED" = "yes" ] || SUFFIX="-TEST"
@@ -94,12 +107,91 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: FBR-Clients-${{ env.VERSION_NAME }}
+          name: apk
           path: out/*.apk
 
+      # The database schema Room wrote during the build (to keep in the repo).
+      - uses: actions/upload-artifact@v4
+        with:
+          name: room-schemas
+          path: app/schemas
+
+  # The Windows PC app (desktop/), packaged as an .msi installer.
+  windows:
+    needs: build
+    runs-on: windows-latest
+    env:
+      BUILD_NUMBER: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v5
+      - name: Build the Windows installer
+        shell: bash
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon :desktop:packageMsi 2>&1 | tee "$RUNNER_TEMP/msi.log" || { scripts/report_errors.sh "$RUNNER_TEMP/msi.log"; exit 1; }
+          mkdir -p out
+          cp desktop/build/compose/binaries/main/msi/*.msi "out/FBR-Clients-PC-${{ needs.build.outputs.version_name }}.msi"
+          ls -l out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: msi
+          path: out/*.msi
+
+  # Pull requests only: pictures of the PC screens (made-up data) as a private draft release, for review.
+  screens:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v5
+      - name: Draw the screens
+        env:
+          SCREENSHOTS_DIR: ${{ runner.temp }}/screens
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon :desktop:test --tests pk.fbrclients.desktop.ScreenshotTest 2>&1 | tee "$RUNNER_TEMP/shots.log" || { scripts/report_errors.sh "$RUNNER_TEMP/shots.log"; exit 1; }
+          ls -l "$SCREENSHOTS_DIR"
+      - name: Save as draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | select(.draft and .name=="Review screens") | .id' |
+            while read -r id; do gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id"; done
+          gh release create "review-screens-${{ github.run_number }}" "$RUNNER_TEMP"/screens/*.png \
+            --draft --title "Review screens" --target "${{ github.event.pull_request.head.sha }}" --notes "Made-up data. Draft only."
+
+  publish:
+    needs: [build, windows]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    env:
+      VERSION_NAME: ${{ needs.build.outputs.version_name }}
+      RELEASE_VERSION: ${{ needs.build.outputs.release_version }}
+      SIGNED: ${{ needs.build.outputs.signed }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk
+          path: out
+      - uses: actions/download-artifact@v4
+        with:
+          name: msi
+          path: out
+      - name: Files
+        run: ls -l out
       # A fixed "latest build" release gives the owner one link to open on the phone.
       - name: Publish latest build
-        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -110,23 +202,23 @@ jobs:
             while read -r id; do gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id"; done
           git tag -f latest-build "$GITHUB_SHA"
           git push -f origin refs/tags/latest-build
-          gh release create latest-build out/*.apk \
+          gh release create latest-build out/* \
             --verify-tag \
             --latest=false \
             --prerelease \
             --title "Latest build (${VERSION_NAME})" \
-            --notes "Built from ${GITHUB_SHA::7}. Signed with release key: ${SIGNED}. Download the .apk on your phone and open it to install."
+            --notes "Built from ${GITHUB_SHA::7}. Signed with release key: ${SIGNED}. Phone: download the .apk on your phone and open it to install. PC (Windows): download the .msi and open it."
           # Fail loudly if the release did not end up public.
           test "$(gh release view latest-build --json isDraft --jq .isDraft)" = "false"
 
       # First signed build of a new version.txt -> a permanent release.
       - name: Publish release
-        if: env.IS_RELEASE == 'true' && env.SIGNED == 'yes'
+        if: needs.build.outputs.is_release == 'true' && needs.build.outputs.signed == 'yes'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v${RELEASE_VERSION}" out/*.apk \
+          gh release create "v${RELEASE_VERSION}" out/* \
             --target "$GITHUB_SHA" \
             --latest \
             --title "FBR Clients ${VERSION_NAME}" \
-            --notes "Signed release ${VERSION_NAME}. Download the .apk on your phone and open it to install. It updates any earlier signed build and keeps your data."
+            --notes "Signed release ${VERSION_NAME}. Phone: download the .apk on your phone and open it to install; it updates any earlier signed build and keeps your data. PC (Windows): download the .msi and open it."
