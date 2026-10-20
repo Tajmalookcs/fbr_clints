@@ -1,12 +1,19 @@
 package pk.fbrclients.app.data
 
 import androidx.room.Dao
+import androidx.room.Embedded
 import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
+
+/** A statement with its net assets, for the list on the client page. */
+data class StatementSummary(
+    @Embedded val statement: WealthStatement,
+    val netAssets: Long,
+)
 
 @Dao
 abstract class WealthDao {

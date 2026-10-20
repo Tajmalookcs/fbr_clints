@@ -51,7 +51,7 @@ jobs:
       - name: Unit tests
         run: |
           set -o pipefail
-          ./gradlew --no-daemon testDebugUnitTest 2>&1 | tee "$RUNNER_TEMP/test.log" || { scripts/report_errors.sh "$RUNNER_TEMP/test.log"; exit 1; }
+          ./gradlew --no-daemon :shared:test testDebugUnitTest 2>&1 | tee "$RUNNER_TEMP/test.log" || { scripts/report_errors.sh "$RUNNER_TEMP/test.log"; exit 1; }
 
       # The signing key is rebuilt from one GitHub Secret (SIGNING_SEED).
       # Nothing secret is stored in the repo. See scripts/derive_keystore.py.

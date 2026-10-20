@@ -55,6 +55,10 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+    // The shared code (formats, maths, import, backup, sync) is compiled into the app
+    // directly, so Room sees the entity classes as source. Its tests run in :shared.
+    sourceSets.getByName("main").java.srcDir("../shared/src/main/kotlin")
+
     buildFeatures {
         compose = true
         buildConfig = true

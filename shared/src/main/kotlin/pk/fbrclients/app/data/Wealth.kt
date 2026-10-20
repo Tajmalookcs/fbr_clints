@@ -1,7 +1,6 @@
 package pk.fbrclients.app.data
 
 import androidx.room.ColumnInfo
-import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -108,12 +107,6 @@ data class WealthItem(
     val propertyAddress: String? = null,
     /** 7014 only: CNIC of the person the asset is held by (12345-1234567-1). */
     val holderCnic: String? = null,
-)
-
-/** A statement with its net assets, for the list on the client page. */
-data class StatementSummary(
-    @Embedded val statement: WealthStatement,
-    val netAssets: Long,
 )
 
 /** "[Type] – [Sub-type], [Area] [Unit], [Property Address]" */
