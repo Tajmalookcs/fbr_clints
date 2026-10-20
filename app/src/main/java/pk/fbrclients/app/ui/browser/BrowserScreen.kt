@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.DownloadManager
 import android.content.Context
 import android.net.Uri
+import androidx.core.view.doOnLayout
 import androidx.webkit.WebViewFeature
 import androidx.webkit.WebSettingsCompat
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -227,6 +228,7 @@ fun BrowserScreen(
                 if (!safeMode) {
                     view.evaluateJavascript(BrowserRules.viewportJs(desktop), null)
                     view.evaluateJavascript(BrowserRules.FIT_POPUPS_JS, null)
+                    view.evaluateJavascript(BrowserRules.FIX_ZERO_HEIGHT_JS, null)
                 }
             }
 
@@ -234,6 +236,7 @@ fun BrowserScreen(
                 if (!safeMode) {
                     view.evaluateJavascript(BrowserRules.viewportJs(desktop), null)
                     view.evaluateJavascript(BrowserRules.FIT_POPUPS_JS, null)
+                    view.evaluateJavascript(BrowserRules.FIX_ZERO_HEIGHT_JS, null)
                 }
                 if (!isPopup) {
                     currentUrl = url
@@ -436,7 +439,9 @@ fun BrowserScreen(
                                 configure(this, isPopup = false)
                                 webView.value = this
                                 if (BrowserRules.isAllowed(startUrl, extraLinks)) {
-                                    loadUrl(startUrl)
+                                    // Load only once the view has its real size, so the page
+                                    // measures the screen height correctly (vh units).
+                                    doOnLayout { it.post { (it as WebView).loadUrl(startUrl) } }
                                 } else {
                                     Actions.openUrl(context, startUrl)
                                     onClose()

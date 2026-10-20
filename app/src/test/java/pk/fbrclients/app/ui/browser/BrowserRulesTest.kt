@@ -48,6 +48,9 @@ class BrowserRulesTest {
         assertFalse(BrowserRules.FIT_POPUPS_JS.contains("max-height"))
         assertFalse(BrowserRules.FIT_POPUPS_JS.contains("overflow"))
         assertTrue(BrowserRules.PAGE_CHECK_JS.contains("popups: "))
+        assertTrue(BrowserRules.PAGE_CHECK_JS.contains("100vh="))
+        assertTrue(BrowserRules.FIX_ZERO_HEIGHT_JS.contains("maxHeight==='0px'"))
+        assertTrue(BrowserRules.FIX_ZERO_HEIGHT_JS.contains(".cdk-overlay-pane"))
         assertFalse(BrowserRules.PAGE_CHECK_JS.contains("\$"))
     }
 

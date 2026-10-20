@@ -86,6 +86,36 @@ object BrowserRules {
     """.trimIndent()
 
     /**
+     * Safety net for popups squashed to nothing. In the app browser, screen-height units
+     * (vh) can come out as 0, so a popup sized "max 90vh" gets max-height 0 and shows only
+     * its dark background (IRIS property form, 2026-10-20). Any popup part with a computed
+     * max-height of 0 gets the real screen height in pixels instead. Watches for new popups.
+     */
+    val FIX_ZERO_HEIGHT_JS: String = """
+        (function(){
+          if(window.__fbrZeroFix) return; window.__fbrZeroFix=true;
+          var SEL='$POPUPS';
+          var pending=false;
+          function fix(){
+            pending=false;
+            var h=Math.round(window.innerHeight*0.9)+'px';
+            var pops=document.querySelectorAll(SEL);
+            for(var i=0;i<pops.length;i++){
+              var all=[pops[i]].concat(Array.prototype.slice.call(pops[i].querySelectorAll('*'),0,300));
+              for(var j=0;j<all.length;j++){
+                var e=all[j];
+                if(getComputedStyle(e).maxHeight==='0px'){ e.style.setProperty('max-height',h,'important'); e.setAttribute('data-fbr-fixed','1'); }
+              }
+            }
+          }
+          function later(){ if(!pending){ pending=true; (window.requestAnimationFrame||setTimeout)(fix,50); } }
+          fix();
+          try{ new MutationObserver(later).observe(document.documentElement,{childList:true,subtree:true}); }catch(e){}
+          window.addEventListener('resize',later);
+        })();
+    """.trimIndent()
+
+    /**
      * "Page check": describes every popup and backdrop on the page (size, position,
      * whether hidden), plus the screen size, so a missing popup can be diagnosed.
      */
@@ -95,7 +125,9 @@ object BrowserRules {
             var cls=(typeof e.className==='string'?e.className:'').trim().split(/\s+/).slice(0,3).join('.');
             return e.tagName.toLowerCase()+(cls?'.'+cls:'')+' x='+Math.round(r.left)+' y='+Math.round(r.top)+' w='+Math.round(r.width)+' h='+Math.round(r.height)
               +' display='+c.display+' vis='+c.visibility+' opacity='+c.opacity+' pos='+c.position+' z='+c.zIndex+(c.transform!=='none'?' transform='+c.transform:''); }
-          var out=['screen '+innerWidth+'x'+innerHeight+' zoom='+(window.visualViewport?visualViewport.scale.toFixed(2):'?')+' '+(navigator.userAgent.match(/Chrome\/[\d.]+/)||[''])[0]];
+          var probe=document.createElement('div'); probe.style.cssText='position:absolute;left:-9999px;top:0;width:1px;height:100vh';
+          document.documentElement.appendChild(probe); var vh=probe.getBoundingClientRect().height; probe.remove();
+          var out=['100vh='+Math.round(vh)+'px  fixed parts='+document.querySelectorAll('[data-fbr-fixed]').length, 'screen '+innerWidth+'x'+innerHeight+' zoom='+(window.visualViewport?visualViewport.scale.toFixed(2):'?')+' '+(navigator.userAgent.match(/Chrome\/[\d.]+/)||[''])[0]];
           var pops=document.querySelectorAll('$POPUPS');
           out.push('popups: '+pops.length);
           for(var i=0;i<pops.length&&i<8;i++) out.push('  '+d(pops[i]));
