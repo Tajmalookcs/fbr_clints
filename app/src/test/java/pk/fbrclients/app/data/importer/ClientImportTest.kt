@@ -180,4 +180,17 @@ class ClientImportTest {
         assertTrue(pk.fbrclients.app.ui.settings.ImportRules.isZip("PK\u0003\u0004rest".toByteArray()))
         assertTrue(!pk.fbrclients.app.ui.settings.ImportRules.isZip("Username,Password".toByteArray()))
     }
+
+    @Test fun xlsxIsFoundByContentNotName() {
+        val r = pk.fbrclients.app.ui.settings.ImportRules
+        val xlsx = zip("[Content_Types].xml" to "<Types/>", "xl/workbook.xml" to "<workbook/>")
+        assertTrue(r.isXlsxWorkbook(xlsx)) // works even if the phone gives no ".xlsx" name
+        assertTrue(!r.isOtherKnownFile("Clients Data 2"))
+        assertTrue(!r.isOtherKnownFile("document:1234"))
+        assertTrue(r.isOtherKnownFile("backup.fbrbak"))
+        assertTrue(!r.isXlsxWorkbook(zip("word/document.xml" to "<w/>"))) // a Word file is refused
+        assertTrue(!r.isXlsxWorkbook("Username,Password".toByteArray()))
+        val xls = byteArrayOf(0xD0.toByte(), 0xCF.toByte(), 0x11, 0xE0.toByte(), 0, 0)
+        assertTrue(r.wrongFileMessage("Clients", xls).contains(".xls)"))
+    }
 }

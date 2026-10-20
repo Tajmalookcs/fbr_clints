@@ -67,10 +67,11 @@ class ImportViewModel(app: Application) : AndroidViewModel(app) {
                 withContext(Dispatchers.IO) {
                     val ctx = getApplication<Application>()
                     val name = ctx.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
-                        ?.use { c -> if (c.moveToFirst()) c.getString(0) else null } ?: "file"
-                    if (!ImportRules.isXlsxName(name)) throw SheetReader.UnsupportedFileException(ImportRules.wrongFileMessage(name))
+                        ?.use { c -> if (c.moveToFirst()) c.getString(0) else null } ?: "Excel file"
+                    // Some phones give the file without ".xlsx" in its name, so the file's content decides.
+                    if (ImportRules.isOtherKnownFile(name)) throw SheetReader.UnsupportedFileException(ImportRules.wrongFileMessage(name))
                     val bytes = ctx.contentResolver.openInputStream(uri).use { requireNotNull(it) { "Could not open the file" }.readBytes() }
-                    if (!ImportRules.isZip(bytes)) throw SheetReader.UnsupportedFileException(ImportRules.wrongFileMessage(name))
+                    if (!ImportRules.isXlsxWorkbook(bytes)) throw SheetReader.UnsupportedFileException(ImportRules.wrongFileMessage(name, bytes))
                     val parsed = ClientImport.parse(SheetReader.read(bytes))
                     bytes.fill(0)
                     State.Preview(name, parsed, fbr.database.clients().allOnce())
@@ -222,12 +223,32 @@ private fun Hint(text: String) {
 object ImportRules {
     fun isXlsxName(name: String) = name.trim().lowercase().endsWith(".xlsx")
 
+    /** Names that are clearly another kind of file (the content is checked anyway). */
+    fun isOtherKnownFile(name: String): Boolean {
+        val n = name.trim().lowercase()
+        return n.endsWith(".fbrbak") || n.endsWith(".xls") || n.endsWith(".csv")
+    }
+
     /** .xlsx files are zip archives: they start with "PK". */
     fun isZip(bytes: ByteArray) = bytes.size >= 4 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()
 
-    fun wrongFileMessage(name: String): String = when {
+    private fun isOldXls(bytes: ByteArray) = bytes.size >= 4 && bytes[0] == 0xD0.toByte() && bytes[1] == 0xCF.toByte() &&
+        bytes[2] == 0x11.toByte() && bytes[3] == 0xE0.toByte()
+
+    /** A real .xlsx is a zip that holds "xl/workbook.xml", whatever the file is called. */
+    fun isXlsxWorkbook(bytes: ByteArray): Boolean {
+        if (!isZip(bytes)) return false
+        return runCatching {
+            java.util.zip.ZipInputStream(java.io.ByteArrayInputStream(bytes)).use { z ->
+                generateSequence { z.nextEntry }.any { it.name.removePrefix("/").equals("xl/workbook.xml", ignoreCase = true) }
+            }
+        }.getOrDefault(false)
+    }
+
+    fun wrongFileMessage(name: String, bytes: ByteArray? = null): String = when {
         name.lowercase().endsWith(".fbrbak") -> "This is a backup file. To use it, go to Settings → Restore from backup."
-        name.lowercase().endsWith(".xls") -> "This is an old Excel file (.xls). In Excel, use Save As → “Excel Workbook (.xlsx)”, then import that file."
+        name.lowercase().endsWith(".xls") || (bytes != null && isOldXls(bytes)) ->
+            "This is an old Excel file (.xls). In Excel, use Save As → “Excel Workbook (.xlsx)”, then import that file."
         else -> "Please choose an Excel .xlsx file."
     }
 }
