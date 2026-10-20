@@ -1,6 +1,6 @@
 # FBR Clients
 
-An offline, encrypted Android app for a tax practitioner. It keeps clients' IRIS logins and contact details, and a yearly Wealth Statement in the FBR IRIS format.
+An offline, encrypted Android app — and a Windows PC app — for a tax practitioner. It keeps clients' IRIS logins and contact details, and a yearly Wealth Statement in the FBR IRIS format. The phone and the PC can stay the same through an encrypted sync file in Google Drive.
 
 - Design: [docs/DESIGN.md](docs/DESIGN.md)
 - Status: **All 5 build-plan steps done.** Lock screen, clients, Wealth Statement, backup and restore, signed release builds.
@@ -11,6 +11,15 @@ An offline, encrypted Android app for a tax practitioner. It keeps clients' IRIS
 - **Test builds:** every change also goes to [latest build](../../releases/tag/latest-build).
 
 Android asks you to allow installs from your browser the first time.
+
+**PC (Windows 10 / 11):** on the same page, download `FBR-Clients-PC-….msi` and open it. Windows may show "Windows protected your PC" (the installer isn't signed by a paid certificate): click **More info → Run anyway**. Then start **FBR Clients** from the Start menu and choose a PIN.
+
+## Sync the phone and the PC
+
+1. On the PC, install **Google Drive for Desktop** (google.com/drive/download) and sign in with the same Google account as the phone.
+2. On the phone: *Settings → Sync with PC → Create sync file* → choose **Drive** and a folder → choose a sync password (at least 8 characters).
+3. On the PC: *Settings → Sync with phone → Use existing sync file* → pick `FBR-Clients.fbrsync` in your Google Drive folder → enter the same sync password.
+4. Done. Both sync on opening, every 5 minutes and on closing; **Sync now** syncs at once. The newest change wins.
 
 ## Using the app
 
@@ -34,7 +43,8 @@ Signing: the release key is rebuilt on each run from one GitHub Secret, `SIGNING
 ## For developers
 
 - Kotlin, Jetpack Compose, Room + SQLCipher, min Android 8.0.
-- Database schema is **version 3** (see `data/Migrations.kt`). Any table change needs a version bump **and** a migration step, or clients' data will be lost on update.
-- Unit tests cover PIN hashing, lockout, input formats, Wealth Statement maths and the backup file.
+- `shared/` = code used by both apps (plain Kotlin, tested in `:shared:test`); `shared-ui/` = small Compose parts for both; `app/` = Android; `desktop/` = Windows (Compose for Desktop, `:desktop:packageMsi`).
+- Database schema is **version 4** (see `data/Migrations.kt`). Any table change needs a version bump **and** a migration step, or clients' data will be lost on update.
+- Unit tests cover PIN hashing, lockout, input formats, Wealth Statement maths, the backup file, sync merging, the database upgrade and triggers, and the PC data file. Pull requests also draw the PC screens (made-up data) into a draft release for review.
 
 > This repository contains code only. No client data is ever stored here.
