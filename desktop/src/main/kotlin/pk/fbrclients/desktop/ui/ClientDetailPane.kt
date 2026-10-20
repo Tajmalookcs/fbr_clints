@@ -51,6 +51,7 @@ import pk.fbrclients.app.data.WealthMath
 import pk.fbrclients.app.util.Formats
 import pk.fbrclients.desktop.AppState
 import pk.fbrclients.desktop.Screen
+import pk.fbrclients.desktop.browser.AppBrowser
 import pk.fbrclients.desktop.platform.Clipboard
 import pk.fbrclients.desktop.platform.Open
 import java.time.LocalDate
@@ -85,10 +86,17 @@ fun ClientDetailPane(state: AppState, c: Client) {
             ) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilledTonalButton(onClick = {
+                        state.toast("Opening IRIS…")
+                        AppBrowser.open(
+                            AppBrowser.Request(IRIS_URL, c, null, data.discos.flatMap { listOf(it.billUrl, it.certUrl) }, c.name),
+                            onStatus = state::toast,
+                        )
+                    }) { Text("IRIS in app") }
+                    OutlinedButton(onClick = {
                         GlobalScope.launch(Dispatchers.IO) { Clipboard.copyLogin(Formats.irisUsername(c.cnic), c.irisPassword) }
                         Open.url(IRIS_URL)
                         state.toast(if (c.irisPassword.isEmpty()) "Username copied" else "Username copied. Paste with Ctrl+V; for the password press Windows key + V and pick the 2nd item.")
-                    }) { Text("Open IRIS") }
+                    }) { Text("Open IRIS in browser") }
                     OutlinedButton(onClick = { Clipboard.copy(Formats.irisUsername(c.cnic)); state.toast("Username copied") }) { Text("Copy Username") }
                     OutlinedButton(enabled = c.irisPassword.isNotEmpty(), onClick = {
                         Clipboard.copy(c.irisPassword, sensitive = true); state.toast("Password copied (clears in 30 s)")

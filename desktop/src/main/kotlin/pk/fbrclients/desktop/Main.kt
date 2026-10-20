@@ -34,6 +34,7 @@ fun main() = application {
         onCloseRequest = {
             // Last sync before closing (at most 20 seconds).
             if (state.isLoaded && !state.locked) runBlocking { withTimeoutOrNull(20_000) { state.sync.syncNow() } }
+            pk.fbrclients.desktop.browser.AppBrowser.shutdown()
             exitApplication()
         },
         title = "FBR Clients",

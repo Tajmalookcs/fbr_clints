@@ -12,7 +12,7 @@ An offline, encrypted Android app — and a Windows PC app — for a tax practit
 
 Android asks you to allow installs from your browser the first time.
 
-**PC (Windows 10 / 11):** on the same page, download `FBR-Clients-PC-….msi` and open it. Windows may show "Windows protected your PC" (the installer isn't signed by a paid certificate): click **More info → Run anyway**. Then start **FBR Clients** from the Start menu and choose a PIN.
+**PC (Windows 10 / 11):** on the same page, download `FBR-Clients-PC-….msi` (about 270 MB, it includes the in-app browser) and open it. Windows may show "Windows protected your PC" (the installer isn't signed by a paid certificate): click **More info → Run anyway**. Then start **FBR Clients** from the Start menu and choose a PIN.
 
 ## Sync the phone and the PC
 

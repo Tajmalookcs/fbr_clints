@@ -37,7 +37,7 @@ import pk.fbrclients.app.ui.components.Dropdown
 import pk.fbrclients.app.util.Formats
 import pk.fbrclients.desktop.AppState
 import pk.fbrclients.desktop.platform.Clipboard
-import pk.fbrclients.desktop.platform.Open
+import pk.fbrclients.desktop.browser.AppBrowser
 
 /** Electricity bills on the client page. Check bill / Tax certificate copy the reference and open the page in the browser. */
 @OptIn(ExperimentalLayoutApi::class)
@@ -55,8 +55,12 @@ fun BillsSection(state: AppState, clientId: Long) {
             return
         }
         Clipboard.copy(ref)
-        Open.url(url)
-        state.toast("Reference number copied. Paste it with Ctrl+V.")
+        val client = data.clients.firstOrNull { it.id == clientId }
+        AppBrowser.open(
+            AppBrowser.Request(url, client, ref, data.discos.flatMap { listOf(it.billUrl, it.certUrl) }, (client?.name ?: "") + " · " + what),
+            onStatus = state::toast,
+        )
+        state.toast("Opening the $what page… (reference number also copied)")
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
