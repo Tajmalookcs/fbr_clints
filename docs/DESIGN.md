@@ -3,6 +3,7 @@
 Status: **Design approved by the owner on 2026-10-16. All build-plan steps implemented (2026-10-16).**
 
 Small additions made during the build (not in the original design):
+- **Downloads from the in-app browsers** (owner, 2026-10-21): before saving, the app asks for the file name, filled in as "<Client name> Return.pdf" (IRIS), "<Client name> FESCO bill.pdf" or "<Client name> FESCO tax certificate.pdf"; saved in Downloads, never overwriting ((1), (2) …). On the phone, files the page makes itself (IRIS Print, blob:/data:) are read from the page and saved too, and the page's Print command opens Android's print screen (Save as PDF), named the same way. PC: the same name box.
 - **Windows PC app and phone ↔ PC sync** (owner approved the plan, 2026-10-20): see §8 and §9. Database schema version 4.
 - Clients and Wealth Statements can be deleted (with a confirmation).
 - In the property form, a missing sub-type can be added straight from the sub-type list.

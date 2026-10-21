@@ -20,6 +20,7 @@ import org.cef.network.CefCookieManager
 import org.cef.network.CefRequest
 import pk.fbrclients.app.data.Client
 import pk.fbrclients.app.ui.browser.BrowserRules
+import pk.fbrclients.app.ui.browser.DownloadNames
 import pk.fbrclients.app.util.Formats
 import pk.fbrclients.desktop.platform.AppPaths
 import pk.fbrclients.desktop.platform.Open
@@ -39,6 +40,7 @@ import javax.swing.BorderFactory
 import javax.swing.JButton
 import javax.swing.JFrame
 import javax.swing.JLabel
+import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.JToolBar
 import javax.swing.SwingUtilities
@@ -156,9 +158,19 @@ object AppBrowser {
         })
         client.addDownloadHandler(object : CefDownloadHandler {
             override fun onBeforeDownload(browser: CefBrowser, item: CefDownloadItem, suggestedName: String, callback: CefBeforeDownloadCallback): Boolean {
-                val target = uniqueFile(downloadsDir(), suggestedName.ifBlank { "download" })
-                callback.Continue(target.absolutePath, false)
-                say("Downloading to Downloads: ${target.name}")
+                // Ask for the name first (owner, 2026-10-21): "<Client> Return.pdf" from IRIS, etc.
+                val suggested = DownloadNames.suggest(r.client?.name, browser.url ?: r.url, suggestedName, item.mimeType)
+                val ext = DownloadNames.extension(suggested, null)
+                SwingUtilities.invokeLater {
+                    val typed = JOptionPane.showInputDialog(
+                        SwingUtilities.getWindowAncestor(browser.uiComponent),
+                        "File name (saved in Downloads):", "Save file", JOptionPane.PLAIN_MESSAGE, null, null, suggested,
+                    ) as String?
+                    if (typed.isNullOrBlank()) { say("Download cancelled."); return@invokeLater }
+                    val target = uniqueFile(downloadsDir(), DownloadNames.finalName(typed, ext))
+                    callback.Continue(target.absolutePath, false)
+                    say("Downloading to Downloads: ${target.name}")
+                }
                 return true
             }
 
@@ -204,7 +216,10 @@ object AppBrowser {
             add(button("+", "Zoom in") { browser.zoomLevel = browser.zoomLevel + 0.5 })
             addSeparator()
             add(button("Save page as PDF") {
-                val f = uniqueFile(downloadsDir(), "FBR-page-" + SimpleDateFormat("yyyy-MM-dd-HHmm").format(Date()) + ".pdf")
+                val suggested = DownloadNames.suggest(r.client?.name, browser.url ?: r.url, null, "application/pdf")
+                val typed = JOptionPane.showInputDialog(frame, "File name (saved in Downloads):", "Save page as PDF", JOptionPane.PLAIN_MESSAGE, null, null, suggested) as String?
+                if (typed.isNullOrBlank()) return@button
+                val f = uniqueFile(downloadsDir(), DownloadNames.finalName(typed, "pdf"))
                 browser.printToPDF(f.absolutePath, CefPdfPrintSettings().apply { print_background = true }) { path, ok ->
                     say(if (ok) "Saved in Downloads: " + File(path).name else "Couldn't save the PDF.")
                 }
