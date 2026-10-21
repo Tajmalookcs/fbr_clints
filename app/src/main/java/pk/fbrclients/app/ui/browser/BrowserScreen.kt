@@ -83,6 +83,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import pk.fbrclients.app.data.Client
 import pk.fbrclients.app.data.ClientDao
 import pk.fbrclients.app.data.ElectricityDao
@@ -140,6 +141,10 @@ fun BrowserScreen(
 
     /** A downloaded file waiting for the owner to confirm its name. */
     var pendingFile by remember { mutableStateOf<PendingFile?>(null) }
+    /** The last saved file, with Send / Open buttons (owner, 2026-10-21). */
+    var saved by remember { mutableStateOf<SavedFile?>(null) }
+    var chooseWhatsApp by remember { mutableStateOf<SavedFile?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     /** The page the fill buttons and menu act on: the popup when one is open. */
     fun active(): WebView? = popup.value ?: webView.value
@@ -432,6 +437,37 @@ fun BrowserScreen(
         bottomBar = {
             Surface(tonalElevation = 3.dp) {
                 Column(Modifier.navigationBarsPadding().imePadding()) {
+                    saved?.let { f ->
+                        Row(
+                            Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 6.dp),
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "Saved: ${f.name}",
+                                style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f),
+                            )
+                            IconButton(onClick = { saved = null }) { Icon(Icons.Filled.Close, contentDescription = "Hide") }
+                        }
+                        Row(
+                            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            androidx.compose.material3.Button(onClick = {
+                                val apps = whatsAppsInstalled(ctx)
+                                when (apps.size) {
+                                    0 -> toast("WhatsApp is not installed")
+                                    1 -> sendOnWhatsApp(ctx, f, apps[0], client?.mobile)
+                                    else -> chooseWhatsApp = f
+                                }
+                            }) { Text("WhatsApp client") }
+                            androidx.compose.material3.OutlinedButton(onClick = { shareFile(ctx, f) }) { Text("Share…") }
+                            androidx.compose.material3.OutlinedButton(onClick = { openFile(ctx, f) }) { Text("Open") }
+                        }
+                        androidx.compose.material3.HorizontalDivider(Modifier.padding(top = 6.dp))
+                    }
                     Text(
                         (client?.name?.let { "$it · " } ?: "") + "tap a box, then:",
                         style = MaterialTheme.typography.labelSmall,
@@ -509,11 +545,32 @@ fun BrowserScreen(
                 pendingFile = null
                 val ext = DownloadNames.extension(f.suggested, null)
                 val name = DownloadNames.finalName(typed, ext)
-                when (f) {
-                    is PendingFile.Web -> download(ctx, f.url, f.userAgent, f.mime, name)
-                    is PendingFile.Bytes -> saveToDownloads(ctx, f.bytes, name, f.mime)
-                        ?.let { toast("Saved in Downloads: $it") } ?: toast("Couldn't save the file.")
+                scope.launch {
+                    val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        when (f) {
+                            is PendingFile.Web -> fetchBytes(f.url, f.userAgent)?.let { (bytes, type) ->
+                                saveToDownloads(ctx, bytes, name, f.mime?.takeIf { it.isNotBlank() && it != "application/octet-stream" } ?: type)
+                            }
+                            is PendingFile.Bytes -> saveToDownloads(ctx, f.bytes, name, f.mime)
+                        }
+                    }
+                    if (result == null) toast("Couldn't save the file. Try ⋮ → Save page as PDF.")
+                    else saved = result
                 }
+            },
+        )
+    }
+
+    chooseWhatsApp?.let { f ->
+        AlertDialog(
+            onDismissRequest = { chooseWhatsApp = null },
+            title = { Text("Send with") },
+            text = { Text("Which WhatsApp?") },
+            confirmButton = {
+                TextButton(onClick = { chooseWhatsApp = null; sendOnWhatsApp(ctx, f, WHATSAPP, client?.mobile) }) { Text("WhatsApp") }
+            },
+            dismissButton = {
+                TextButton(onClick = { chooseWhatsApp = null; sendOnWhatsApp(ctx, f, WHATSAPP_BUSINESS, client?.mobile) }) { Text("WhatsApp Business") }
             },
         )
     }
@@ -545,23 +602,6 @@ fun BrowserScreen(
                 }
             },
         )
-    }
-}
-
-/** Downloads a file from the site into Downloads, under the name the owner chose. */
-private fun download(ctx: Context, url: String, userAgent: String, mimeType: String?, name: String) {
-    try {
-        val req = DownloadManager.Request(Uri.parse(url))
-            .setMimeType(mimeType)
-            .addRequestHeader("Cookie", CookieManager.getInstance().getCookie(url).orEmpty())
-            .addRequestHeader("User-Agent", userAgent)
-            .setTitle(name)
-            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name)
-        ctx.getSystemService(DownloadManager::class.java).enqueue(req)
-        Toast.makeText(ctx, "Downloading $name to Downloads", Toast.LENGTH_SHORT).show()
-    } catch (e: Exception) {
-        Toast.makeText(ctx, "Download failed. Try ⋮ → Save page as PDF.", Toast.LENGTH_LONG).show()
     }
 }
 
@@ -608,8 +648,11 @@ private fun dataUrlBytes(url: String): Pair<ByteArray, String>? = runCatching {
     bytes to mime
 }.getOrNull()
 
-/** Saves bytes into the phone's Downloads folder; returns the name used (Android adds (1) etc. if it exists). */
-private fun saveToDownloads(ctx: Context, bytes: ByteArray, name: String, mime: String): String? = runCatching {
+/** A file saved in Downloads: its address for sharing / opening, and its name. */
+private class SavedFile(val uri: Uri, val name: String, val mime: String)
+
+/** Saves bytes into the phone's Downloads folder (Android adds (1) etc. if the name exists). */
+private fun saveToDownloads(ctx: Context, bytes: ByteArray, name: String, mime: String): SavedFile? = runCatching {
     if (android.os.Build.VERSION.SDK_INT >= 29) {
         val values = android.content.ContentValues().apply {
             put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name)
@@ -621,8 +664,9 @@ private fun saveToDownloads(ctx: Context, bytes: ByteArray, name: String, mime: 
         val uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: return@runCatching null
         resolver.openOutputStream(uri)?.use { it.write(bytes) } ?: return@runCatching null
         resolver.update(uri, android.content.ContentValues().apply { put(android.provider.MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
-        resolver.query(uri, arrayOf(android.provider.MediaStore.MediaColumns.DISPLAY_NAME), null, null, null)
+        val shown = resolver.query(uri, arrayOf(android.provider.MediaStore.MediaColumns.DISPLAY_NAME), null, null, null)
             ?.use { c -> if (c.moveToFirst()) c.getString(0) else null } ?: name
+        SavedFile(uri, shown, mime)
     } else {
         // Android 8–9: the app's own Downloads folder (no storage permission needed).
         val dir = ctx.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: return@runCatching null
@@ -630,9 +674,80 @@ private fun saveToDownloads(ctx: Context, bytes: ByteArray, name: String, mime: 
         var n = 1
         while (f.exists()) f = java.io.File(dir, name.substringBeforeLast('.') + " (${n++})." + name.substringAfterLast('.'))
         f.writeBytes(bytes)
-        f.absolutePath
+        SavedFile(androidx.core.content.FileProvider.getUriForFile(ctx, ctx.packageName + ".files", f), f.name, mime)
     }
 }.getOrNull()
+
+/** Gets a file from the site with the browser's cookies (the login), for saving under the chosen name. */
+private fun fetchBytes(url: String, userAgent: String): Pair<ByteArray, String>? = runCatching {
+    var u = java.net.URL(url)
+    repeat(5) {
+        val c = u.openConnection() as java.net.HttpURLConnection
+        c.instanceFollowRedirects = false
+        c.connectTimeout = 20_000
+        c.readTimeout = 60_000
+        c.setRequestProperty("User-Agent", userAgent)
+        CookieManager.getInstance().getCookie(u.toString())?.let { c.setRequestProperty("Cookie", it) }
+        val code = c.responseCode
+        if (code in 300..399) {
+            val next = c.getHeaderField("Location") ?: return@runCatching null
+            c.disconnect()
+            u = java.net.URL(u, next)
+            if (u.protocol != "https") return@runCatching null
+            return@repeat
+        }
+        if (code !in 200..299) return@runCatching null
+        val type = c.contentType?.substringBefore(';')?.trim() ?: "application/pdf"
+        val bytes = c.inputStream.use { it.readBytes() }
+        c.disconnect()
+        return@runCatching bytes to type
+    }
+    null
+}.getOrNull()
+
+private const val WHATSAPP = "com.whatsapp"
+private const val WHATSAPP_BUSINESS = "com.whatsapp.w4b"
+
+private fun whatsAppsInstalled(ctx: Context): List<String> = listOf(WHATSAPP, WHATSAPP_BUSINESS).filter { p ->
+    runCatching { ctx.packageManager.getPackageInfo(p, 0) }.isSuccess
+}
+
+/** Opens WhatsApp with the file attached: straight to the client's chat when the mobile is saved, else the contact list. */
+private fun sendOnWhatsApp(ctx: Context, f: SavedFile, app: String, mobile: String?) {
+    val i = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+        type = f.mime
+        putExtra(android.content.Intent.EXTRA_STREAM, f.uri)
+        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        setPackage(app)
+        mobile?.let(Formats::whatsAppNumber)?.let { putExtra("jid", "$it@s.whatsapp.net") }
+    }
+    try {
+        ctx.startActivity(i)
+    } catch (_: android.content.ActivityNotFoundException) {
+        Toast.makeText(ctx, "WhatsApp is not installed", Toast.LENGTH_SHORT).show()
+    }
+}
+
+private fun shareFile(ctx: Context, f: SavedFile) {
+    val i = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+        type = f.mime
+        putExtra(android.content.Intent.EXTRA_STREAM, f.uri)
+        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    ctx.startActivity(android.content.Intent.createChooser(i, f.name))
+}
+
+private fun openFile(ctx: Context, f: SavedFile) {
+    val i = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+        setDataAndType(f.uri, f.mime)
+        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    try {
+        ctx.startActivity(i)
+    } catch (_: android.content.ActivityNotFoundException) {
+        Toast.makeText(ctx, "No app to open this file", Toast.LENGTH_SHORT).show()
+    }
+}
 
 /** Asks for the file name before saving (owner, 2026-10-21). */
 @Composable
