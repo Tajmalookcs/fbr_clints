@@ -89,6 +89,10 @@ class ClientImportTest {
         assertEquals(ClientImport.Field.BUSINESS, ClientImport.fieldFor("Business Name"))
         assertEquals(ClientImport.Field.ADDRESS, ClientImport.fieldFor("Address"))
         assertEquals(ClientImport.Field.USERNAME, ClientImport.fieldFor("username"))
+        assertEquals(ClientImport.Field.REFERENCE, ClientImport.fieldFor("Reference"))
+        assertEquals(ClientImport.Field.REFERENCE, ClientImport.fieldFor("Ref"))
+        assertEquals(ClientImport.Field.REFERENCE, ClientImport.fieldFor("Referred By"))
+        assertEquals(ClientImport.Field.NAME, ClientImport.fieldFor("Name"))
     }
 
     @Test fun planAddsUpdatesAndSkips() {

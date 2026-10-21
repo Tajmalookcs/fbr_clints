@@ -3,6 +3,7 @@
 Status: **Design approved by the owner on 2026-10-16. All build-plan steps implemented (2026-10-16).**
 
 Small additions made during the build (not in the original design):
+- **Reference** on each client (owner, 2026-10-21): who referred the client, free text; searchable, shown on the client page and list, Excel column "Reference" / "Ref", synced and backed up. Database schema version 5.
 - **Downloads from the in-app browsers** (owner, 2026-10-21): before saving, the app asks for the file name, filled in as "<Client name> Return.pdf" (IRIS), "<Client name> FESCO bill.pdf" or "<Client name> FESCO tax certificate.pdf"; saved in Downloads, never overwriting ((1), (2) …). On the phone, files the page makes itself (IRIS Print, blob:/data:) are read from the page and saved too, and the page's Print command opens Android's print screen (Save as PDF), named the same way. PC: the same name box.
 - **After saving a file** in the phone browser (owner, 2026-10-21): a bar with **WhatsApp client** (opens WhatsApp / WhatsApp Business with the PDF attached, straight to the client's chat when a mobile is saved, else the contact list), **Share…** and **Open**. Files from the site are fetched with the browser's login and saved under the chosen name.
 - **Windows PC app and phone ↔ PC sync** (owner approved the plan, 2026-10-20): see §8 and §9. Database schema version 4.
@@ -153,7 +154,7 @@ Items may have **amount 0** (e.g. inherited or dowry items).
 ## 5. Data model (Room)
 
 - Every synced record also has **uid** and **updatedAt** (§9); deletions are kept in **sync_deleted** (uid, kind, deletedAt, replacedBy).
-- **Client**: id, cnic (IRIS username: CNIC or NTN), irisPassword, name, businessName, ntn, mobile, email, address, notes
+- **Client**: id, cnic (IRIS username: CNIC or NTN), irisPassword, name, businessName, ntn, mobile, email, address, notes, reference
 - **WealthStatement**: id, clientId, taxYear, prevYearNetAssets, incomeNormal (7031), incomeExempt (7032), incomeFinal (7033), personalExpenses (7087)
 - **Category**: code, name, group, kind (asset / liability), isProperty, sortOrder, editable
 - **PropertySubType**: id, propertyCategoryCode, name

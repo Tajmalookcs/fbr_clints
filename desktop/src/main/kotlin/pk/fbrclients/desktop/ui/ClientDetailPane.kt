@@ -110,6 +110,7 @@ fun ClientDetailPane(state: AppState, c: Client) {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                         if (c.businessName.isNotBlank()) Field(state, "Business Name", c.businessName)
+                        if (c.reference.isNotBlank()) Field(state, "Reference", c.reference)
                         Field(state, "IRIS username (" + (if (c.cnic.length == 15) "CNIC" else "NTN") + ")", c.cnic, mono = true)
                         Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {

@@ -47,6 +47,7 @@ fun ClientEditPane(state: AppState, id: Long) {
     var email by remember(id) { mutableStateOf(original?.email.orEmpty()) }
     var address by remember(id) { mutableStateOf(original?.address.orEmpty()) }
     var notes by remember(id) { mutableStateOf(original?.notes.orEmpty()) }
+    var reference by remember(id) { mutableStateOf(original?.reference.orEmpty()) }
     var showPassword by remember { mutableStateOf(false) }
     var errors by remember(id) { mutableStateOf<Map<String, String>>(emptyMap()) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -71,6 +72,7 @@ fun ClientEditPane(state: AppState, id: Long) {
             email = email.trim(),
             address = address.trim(),
             notes = notes.trim(),
+            reference = reference.trim(),
         )
         val savedId = state.store.saveClient(c)
         state.editingClientId = null
@@ -91,6 +93,7 @@ fun ClientEditPane(state: AppState, id: Long) {
         ) {
             Field("Name *", name, { name = it; errors = errors - "name" }, errors["name"])
             Field("Business Name", businessName, { businessName = it }, null)
+            Field("Reference (who referred the client)", reference, { reference = it }, null)
             Field(
                 "IRIS username * (CNIC or NTN)", username,
                 { v -> username = v.filter { it.isLetterOrDigit() }.uppercase().take(Formats.CNIC_DIGITS); errors = errors - "username" },

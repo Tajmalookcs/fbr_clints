@@ -28,10 +28,19 @@ object Migrations {
         }
     }
 
-    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+    val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            MigrationSql.v4to5.forEach(db::execSQL)
+        }
+    }
+
+    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
 }
 
 object MigrationSql {
+    /** 4 -> 5: who referred the client (owner, 2026-10-21). */
+    val v4to5: List<String> = listOf("ALTER TABLE `client` ADD COLUMN `reference` TEXT NOT NULL DEFAULT ''")
+
     /** Tables whose records sync between devices, with the kind written in their tombstones. */
     val SYNCED_TABLES = listOf(
         "client" to Kind.CLIENT,

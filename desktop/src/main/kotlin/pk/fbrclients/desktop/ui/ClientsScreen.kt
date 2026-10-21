@@ -47,7 +47,7 @@ object ClientSearch {
         if (q.isEmpty()) return sorted
         val digits = Formats.digitsOnly(q).takeIf { it.isNotEmpty() }
         return sorted.filter { c ->
-            listOf(c.name, c.businessName, c.cnic, c.ntn, c.mobile).any { it.contains(q, ignoreCase = true) } ||
+            listOf(c.name, c.businessName, c.cnic, c.ntn, c.mobile, c.reference).any { it.contains(q, ignoreCase = true) } ||
                 (digits != null && listOf(c.cnic, c.mobile, c.ntn).any { it.replace("-", "").contains(digits) })
         }
     }
@@ -65,7 +65,7 @@ fun ClientsScreen(state: AppState) {
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    placeholder = { Text("Search name, CNIC, NTN, mobile") },
+                    placeholder = { Text("Search name, CNIC, NTN, mobile, reference") },
                     leadingIcon = { Icon(Icons.Filled.Search, null) },
                     singleLine = true,
                     modifier = Modifier.weight(1f),
@@ -127,5 +127,6 @@ private fun ClientRow(c: Client, selected: Boolean, onClick: () -> Unit) {
         }
         val sub = listOf(c.cnic, c.mobile).filter { it.isNotBlank() }.joinToString("   ·   ")
         Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (c.reference.isNotBlank()) Text("Ref: " + c.reference, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

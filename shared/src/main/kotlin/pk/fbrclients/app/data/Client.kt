@@ -23,6 +23,8 @@ data class Client(
     val email: String = "",
     val address: String = "",
     val notes: String = "",
+    /** Who referred the client (owner, 2026-10-21), e.g. "Ali Khan (bank manager)". Searchable. */
+    @ColumnInfo(defaultValue = "") val reference: String = "",
     /** Same on every device; used by sync. */
     @ColumnInfo(defaultValue = "") val uid: String = newUid(),
     /** Last change (ms since 1970). 0 = set by the database on save. */

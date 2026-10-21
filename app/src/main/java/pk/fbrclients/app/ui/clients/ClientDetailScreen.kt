@@ -120,6 +120,7 @@ fun ClientDetailScreen(
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                     if (c.businessName.isNotBlank()) Field("Business Name", c.businessName)
+                    if (c.reference.isNotBlank()) Field("Reference", c.reference)
                     Field("IRIS username (" + (if (c.cnic.length == 15) "CNIC" else "NTN") + ")", c.cnic, mono = true)
                     PasswordField(c, showPassword, onToggle = { showPassword = !showPassword })
                     Field("NTN", c.ntn, mono = true)

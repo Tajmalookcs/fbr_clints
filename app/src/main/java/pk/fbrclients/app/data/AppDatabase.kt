@@ -20,7 +20,7 @@ import java.security.SecureRandom
         Client::class, Category::class, PropertySubType::class, WealthStatement::class, WealthItem::class,
         ElectricityBill::class, Disco::class, Tombstone::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
