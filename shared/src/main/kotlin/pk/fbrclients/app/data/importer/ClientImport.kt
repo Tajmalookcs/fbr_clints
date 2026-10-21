@@ -9,7 +9,7 @@ import pk.fbrclients.app.util.Formats
  * Without a header, column A is the username (CNIC or NTN) and column B the password.
  */
 object ClientImport {
-    enum class Field { USERNAME, PASSWORD, NAME, BUSINESS, NTN, MOBILE, EMAIL, ADDRESS }
+    enum class Field { USERNAME, PASSWORD, NAME, BUSINESS, NTN, MOBILE, EMAIL, ADDRESS, REFERENCE }
 
     data class Row(
         val rowNumber: Int,
@@ -23,6 +23,8 @@ object ClientImport {
         val mobile: String = "",
         val email: String = "",
         val address: String = "",
+        /** Who referred the client. */
+        val reference: String = "",
     )
 
     data class Parsed(val rows: List<Row>, val problems: List<String>, val hadHeader: Boolean)
@@ -48,6 +50,7 @@ object ClientImport {
             "mail" in h -> Field.EMAIL
             "business" in h || "company" in h || "firm" in h || "shop" in h -> Field.BUSINESS
             "address" in h || words.any { it == "addr" } -> Field.ADDRESS
+            "reference" in h || "referred" in h || words.any { it == "ref" || it == "refer" } -> Field.REFERENCE
             "name" in h -> Field.NAME
             else -> null
         }
@@ -116,6 +119,7 @@ object ClientImport {
                 mobile = if (mobile.isEmpty()) "" else Formats.formatMobile(mobile),
                 email = email,
                 address = get(Field.ADDRESS),
+                reference = get(Field.REFERENCE),
             )
         }
         return Parsed(rows, problems, hadHeader = header != null)
@@ -144,6 +148,7 @@ object ClientImport {
                     name = r.name.ifBlank { r.businessName.ifBlank { r.username } },
                     businessName = r.businessName,
                     ntn = r.ntn, mobile = r.mobile, email = r.email, address = r.address,
+                    reference = r.reference,
                 )
                 continue
             }
@@ -155,6 +160,7 @@ object ClientImport {
                 address = old.address.ifBlank { r.address },
                 mobile = old.mobile.ifBlank { r.mobile },
                 email = old.email.ifBlank { r.email },
+                reference = old.reference.ifBlank { r.reference },
             )
             if (merged == old) same++ else update += merged
         }

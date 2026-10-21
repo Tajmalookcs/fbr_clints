@@ -23,7 +23,7 @@ Android asks you to allow installs from your browser the first time.
 
 ## Using the app
 
-- **Clients:** search by name, CNIC, NTN or mobile. On a client's page: Call, WhatsApp, SMS, Email, Copy CNIC, Copy Password (clears after 30 s), Open IRIS (copies password then username for the keyboard's clipboard history, then opens Chrome).
+- **Clients:** search by name, CNIC, NTN, mobile or reference (who referred the client). On a client's page: Call, WhatsApp, SMS, Email, Copy CNIC, Copy Password (clears after 30 s), Open IRIS (copies password then username for the keyboard's clipboard history, then opens Chrome).
 - **Wealth Statement:** on a client's page, tap **New tax year**. It can copy every item from the previous year. Tabs: Assets, Liabilities, Reconciliation. Every description has a **Copy** button for pasting into IRIS; on the Reconciliation tab, tap any amount to copy it.
 - **Settings** (gear icon on the client list): change PIN, fingerprint, auto-lock time, categories and property sub-types (add unknown IRIS codes here), backup and restore.
 - **App browser:** **IRIS in app**, **Check bill** and **Tax certificate** open inside the app and fill the username / password / reference for you (you press Login / Submit). Fill buttons at the bottom work on any box: tap the box, then the button. Sites open in desktop mode (⋮ → Desktop site to switch off).
@@ -44,7 +44,7 @@ Signing: the release key is rebuilt on each run from one GitHub Secret, `SIGNING
 
 - Kotlin, Jetpack Compose, Room + SQLCipher, min Android 8.0.
 - `shared/` = code used by both apps (plain Kotlin, tested in `:shared:test`); `shared-ui/` = small Compose parts for both; `app/` = Android; `desktop/` = Windows (Compose for Desktop, `:desktop:packageMsi`).
-- Database schema is **version 4** (see `data/Migrations.kt`). Any table change needs a version bump **and** a migration step, or clients' data will be lost on update.
+- Database schema is **version 5** (see `data/Migrations.kt`). Any table change needs a version bump **and** a migration step, or clients' data will be lost on update.
 - Unit tests cover PIN hashing, lockout, input formats, Wealth Statement maths, the backup file, sync merging, the database upgrade and triggers, and the PC data file. Pull requests also draw the PC screens (made-up data) into a draft release for review.
 
 > This repository contains code only. No client data is ever stored here.

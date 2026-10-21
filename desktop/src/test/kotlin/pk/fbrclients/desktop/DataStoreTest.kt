@@ -103,11 +103,12 @@ class DataStoreTest {
     @Test fun searchLikeThePhone() {
         val all = listOf(
             Client(id = 1, cnic = "42101-1234567-1", name = "Zahid Traders", mobile = "0300-1234567"),
-            Client(id = 2, cnic = "1234567", name = "ali khan", businessName = "Khan Steel"),
+            Client(id = 2, cnic = "1234567", name = "ali khan", businessName = "Khan Steel", reference = "Bashir Sahib"),
         )
         assertEquals(listOf("ali khan", "Zahid Traders"), ClientSearch.filter(all, "").map { it.name })
         assertEquals(listOf(1L), ClientSearch.filter(all, "4210112").map { it.id })
         assertEquals(listOf(2L), ClientSearch.filter(all, "steel").map { it.id })
         assertEquals(listOf(1L), ClientSearch.filter(all, "03001234567").map { it.id })
+        assertEquals(listOf(2L), ClientSearch.filter(all, "bashir").map { it.id })
     }
 }

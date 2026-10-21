@@ -140,12 +140,14 @@ object RecordJson {
     fun client(c: Client): JSONObject = JSONObject().put("cnic", c.cnic).put("irisPassword", c.irisPassword).put("name", c.name)
         .put("businessName", c.businessName)
         .put("ntn", c.ntn).put("mobile", c.mobile).put("email", c.email).put("address", c.address).put("notes", c.notes)
+        .put("reference", c.reference)
         .stamp(c.uid, c.updatedAt)
 
     fun readClient(o: JSONObject) = Client(
         cnic = o.getString("cnic"), irisPassword = o.getString("irisPassword"),
         name = o.getString("name"), businessName = o.optString("businessName", ""), ntn = o.getString("ntn"), mobile = o.getString("mobile"),
         email = o.getString("email"), address = o.getString("address"), notes = o.getString("notes"),
+        reference = o.optString("reference", ""),
         uid = o.uid(), updatedAt = o.updated(),
     )
 

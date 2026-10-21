@@ -429,7 +429,7 @@ fun ImportPage(state: AppState, onDone: () -> Unit) {
                 Text("Add many clients at once from an Excel file (.xlsx only).", style = MaterialTheme.typography.bodyLarge)
                 Hint(
                     "• Column A: IRIS username (CNIC, or NTN for companies / AOPs), Column B: password — or use headers like “Username” and “Password”.\n" +
-                        "• Optional columns with headers: Name, Business Name, NTN, Cell No / Mobile, Email, Address.\n" +
+                        "• Optional columns with headers: Name, Business Name, NTN, Cell No / Mobile, Email, Address, Reference.\n" +
                         "• Passwords are imported exactly as written.\n" +
                         "• The file is read on this PC only. Nothing is uploaded.",
                 )

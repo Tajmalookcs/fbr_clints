@@ -62,6 +62,7 @@ class SchemaUpgradeTest {
         val create = e.getString("createSql").replace("\${TABLE_NAME}", table)
             .replace(Regex(",\\s*`uid` TEXT NOT NULL DEFAULT ''"), "")
             .replace(Regex(",\\s*`updatedAt` INTEGER NOT NULL DEFAULT 0"), "")
+            .replace(Regex(",\\s*`reference` TEXT NOT NULL DEFAULT ''"), "")
         val idx = e.optJSONArray("indices")
         val indices = if (idx == null) emptyList() else (0 until idx.length()).map { idx.getJSONObject(it) }
             .filter { it.getString("name") != "index_${table}_uid" }
@@ -71,10 +72,10 @@ class SchemaUpgradeTest {
 
     @Test fun upgradeFrom3MatchesCurrentSchema() {
         val schema = currentSchema()
-        assertEquals(4, schema.getInt("version"))
+        assertEquals(5, schema.getInt("version"))
         val fresh = db(createSql(entities()))
         val old = v3Sql()
-        assertTrue("v3 has no sync columns", old.none { "`uid`" in it || "updatedAt" in it })
+        assertTrue("v3 has no sync columns", old.none { "`uid`" in it || "updatedAt" in it || "`reference`" in it })
         val upgraded = db(old)
         upgraded.createStatement().use { st ->
             // Some version-3 data, including the built-in categories.
@@ -85,6 +86,7 @@ class SchemaUpgradeTest {
             st.execute("INSERT INTO property_sub_type (id, categoryId, name) VALUES (1, 4, 'Flat'), (2, 4, 'Flat'), (3, 4, 'Shop')")
             st.execute("INSERT INTO client (id, cnic, irisPassword, name, businessName, ntn, mobile, email, address, notes) VALUES (1, '12345-1234567-1', 'pw', 'Test', '', '', '', '', '', '')")
             MigrationSql.v3to4.forEach(st::execute)
+            MigrationSql.v4to5.forEach(st::execute)
         }
         assertEquals(describe(fresh), describe(upgraded))
         upgraded.createStatement().use { st ->

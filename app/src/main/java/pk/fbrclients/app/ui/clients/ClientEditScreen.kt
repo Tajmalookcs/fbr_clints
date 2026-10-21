@@ -62,6 +62,7 @@ class ClientEditViewModel(private val dao: ClientDao, private val id: Long?) : V
     var email by mutableStateOf("")
     var address by mutableStateOf("")
     var notes by mutableStateOf("")
+    var reference by mutableStateOf("")
 
     var nameError by mutableStateOf<String?>(null)
     var usernameError by mutableStateOf<String?>(null)
@@ -85,6 +86,7 @@ class ClientEditViewModel(private val dao: ClientDao, private val id: Long?) : V
                 email = c.email
                 address = c.address
                 notes = c.notes
+                reference = c.reference
             }
             loaded = true
         }
@@ -119,6 +121,7 @@ class ClientEditViewModel(private val dao: ClientDao, private val id: Long?) : V
                 email = email.trim(),
                 address = address.trim(),
                 notes = notes.trim(),
+                reference = reference.trim(),
                 uid = original?.uid ?: newUid(),
                 updatedAt = original?.updatedAt ?: 0,
             )
@@ -174,6 +177,10 @@ fun ClientEditScreen(
             )
             FormField(
                 "Business Name", vm.businessName, { vm.businessName = it }, null,
+                keyboard = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+            )
+            FormField(
+                "Reference (who referred the client)", vm.reference, { vm.reference = it }, null,
                 keyboard = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
             )
             FormField(
