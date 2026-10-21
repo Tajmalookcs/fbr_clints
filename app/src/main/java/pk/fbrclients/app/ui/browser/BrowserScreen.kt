@@ -5,6 +5,7 @@ import android.app.DownloadManager
 import android.content.Context
 import android.net.Uri
 import androidx.core.view.doOnLayout
+import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import androidx.webkit.WebSettingsCompat
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -137,6 +138,9 @@ fun BrowserScreen(
         fileCallback = null
     }
 
+    /** A downloaded file waiting for the owner to confirm its name. */
+    var pendingFile by remember { mutableStateOf<PendingFile?>(null) }
+
     /** The page the fill buttons and menu act on: the popup when one is open. */
     fun active(): WebView? = popup.value ?: webView.value
 
@@ -198,6 +202,22 @@ fun BrowserScreen(
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(wv, true)
 
+        // Files the page makes itself (e.g. the IRIS return from Print) and the page's Print command.
+        wv.addJavascriptInterface(
+            PageBridge(
+                onFile = { bytes, mime ->
+                    val c = client
+                    pendingFile = PendingFile.Bytes(bytes, DownloadNames.suggest(c?.name, wv.url ?: currentUrl, null, mime), mime)
+                },
+                onPrint = { printPage(ctx, wv, DownloadNames.suggest(client?.name, wv.url ?: currentUrl, null, "application/pdf").removeSuffix(".pdf")) },
+                onError = { msg -> log("Download failed: $msg"); toast("Couldn't save this file. Try ⋮ → Save page as PDF.") },
+            ),
+            "FbrDownload",
+        )
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            runCatching { WebViewCompat.addDocumentStartJavaScript(wv, BrowserRules.PAGE_START_JS, setOf("*")) }
+        }
+
         wv.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url.toString()
@@ -225,6 +245,7 @@ fun BrowserScreen(
             }
 
             override fun onPageCommitVisible(view: WebView, url: String) {
+                view.evaluateJavascript(BrowserRules.PAGE_START_JS, null)
                 if (!safeMode) {
                     view.evaluateJavascript(BrowserRules.viewportJs(desktop), null)
                     view.evaluateJavascript(BrowserRules.FIT_POPUPS_JS, null)
@@ -309,7 +330,16 @@ fun BrowserScreen(
             }
         }
         wv.setDownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
-            download(wv.context, url, userAgent, contentDisposition, mimeType)
+            val original = runCatching { URLUtil.guessFileName(url, contentDisposition, mimeType) }.getOrNull()
+            val name = DownloadNames.suggest(client?.name, wv.url ?: currentUrl, original, mimeType)
+            when {
+                url.startsWith("blob:") -> wv.evaluateJavascript(BrowserRules.fetchBlobJs(url, mimeType.orEmpty()), null)
+                url.startsWith("data:") -> dataUrlBytes(url)?.let { (bytes, mime) ->
+                    pendingFile = PendingFile.Bytes(bytes, DownloadNames.suggest(client?.name, wv.url ?: currentUrl, null, mime), mime)
+                } ?: toast("Couldn't read this file. Try ⋮ → Save page as PDF.")
+                url.startsWith("http") -> pendingFile = PendingFile.Web(url, userAgent, mimeType, name)
+                else -> toast("This file can't be downloaded here. Try ⋮ → Save page as PDF.")
+            }
         }
     }
 
@@ -389,7 +419,7 @@ fun BrowserScreen(
                     )
                     DropdownMenuItem(text = { Text("Save page as PDF / Print") }, onClick = {
                         menu = false
-                        active()?.let { printPage(ctx, it, title) }
+                        active()?.let { printPage(ctx, it, DownloadNames.suggest(client?.name, it.url ?: currentUrl, null, "application/pdf").removeSuffix(".pdf")) }
                     })
                     DropdownMenuItem(text = { Text("Open in Chrome") }, onClick = {
                         menu = false
@@ -471,6 +501,23 @@ fun BrowserScreen(
         }
     }
 
+    pendingFile?.let { f ->
+        SaveFileDialog(
+            suggested = f.suggested,
+            onDismiss = { pendingFile = null },
+            onSave = { typed ->
+                pendingFile = null
+                val ext = DownloadNames.extension(f.suggested, null)
+                val name = DownloadNames.finalName(typed, ext)
+                when (f) {
+                    is PendingFile.Web -> download(ctx, f.url, f.userAgent, f.mime, name)
+                    is PendingFile.Bytes -> saveToDownloads(ctx, f.bytes, name, f.mime)
+                        ?.let { toast("Saved in Downloads: $it") } ?: toast("Couldn't save the file.")
+                }
+            },
+        )
+    }
+
     if (showProblems) {
         AlertDialog(
             onDismissRequest = { showProblems = false },
@@ -501,14 +548,9 @@ fun BrowserScreen(
     }
 }
 
-/** Saves a bill / certificate file to the phone's Downloads folder. */
-private fun download(ctx: Context, url: String, userAgent: String, contentDisposition: String?, mimeType: String?) {
+/** Downloads a file from the site into Downloads, under the name the owner chose. */
+private fun download(ctx: Context, url: String, userAgent: String, mimeType: String?, name: String) {
     try {
-        if (!url.startsWith("http")) {
-            Toast.makeText(ctx, "This file can't be downloaded here. Use ⋮ → Save page as PDF.", Toast.LENGTH_LONG).show()
-            return
-        }
-        val name = URLUtil.guessFileName(url, contentDisposition, mimeType)
         val req = DownloadManager.Request(Uri.parse(url))
             .setMimeType(mimeType)
             .addRequestHeader("Cookie", CookieManager.getInstance().getCookie(url).orEmpty())
@@ -523,7 +565,102 @@ private fun download(ctx: Context, url: String, userAgent: String, contentDispos
     }
 }
 
-/** Android's print screen, where "Save as PDF" is one of the printers. */
+/** A downloaded file waiting for its name. */
+private sealed interface PendingFile {
+    val suggested: String
+
+    class Web(val url: String, val userAgent: String, val mime: String?, override val suggested: String) : PendingFile
+    class Bytes(val bytes: ByteArray, override val suggested: String, val mime: String) : PendingFile
+}
+
+/** Called by the page (JavaScript): a file it made, or its Print command. */
+private class PageBridge(
+    private val onFile: (ByteArray, String) -> Unit,
+    private val onPrint: () -> Unit,
+    private val onError: (String) -> Unit,
+) {
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+
+    @android.webkit.JavascriptInterface
+    fun save(base64: String, mime: String) {
+        val bytes = runCatching { android.util.Base64.decode(base64, android.util.Base64.DEFAULT) }.getOrNull()
+        main.post { if (bytes != null && bytes.isNotEmpty()) onFile(bytes, mime.ifBlank { "application/pdf" }) else onError("empty file") }
+    }
+
+    @android.webkit.JavascriptInterface
+    fun failed(message: String) {
+        main.post { onError(message) }
+    }
+
+    @android.webkit.JavascriptInterface
+    fun print() {
+        main.post { onPrint() }
+    }
+}
+
+/** "data:application/pdf;base64,…" → bytes and type. */
+private fun dataUrlBytes(url: String): Pair<ByteArray, String>? = runCatching {
+    val head = url.substringBefore(',')
+    val body = url.substringAfter(',')
+    val mime = head.removePrefix("data:").substringBefore(';').ifBlank { "application/octet-stream" }
+    val bytes = if (head.contains(";base64")) android.util.Base64.decode(body, android.util.Base64.DEFAULT)
+    else java.net.URLDecoder.decode(body, "UTF-8").toByteArray()
+    bytes to mime
+}.getOrNull()
+
+/** Saves bytes into the phone's Downloads folder; returns the name used (Android adds (1) etc. if it exists). */
+private fun saveToDownloads(ctx: Context, bytes: ByteArray, name: String, mime: String): String? = runCatching {
+    if (android.os.Build.VERSION.SDK_INT >= 29) {
+        val values = android.content.ContentValues().apply {
+            put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name)
+            put(android.provider.MediaStore.MediaColumns.MIME_TYPE, mime)
+            put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+            put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
+        }
+        val resolver = ctx.contentResolver
+        val uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: return@runCatching null
+        resolver.openOutputStream(uri)?.use { it.write(bytes) } ?: return@runCatching null
+        resolver.update(uri, android.content.ContentValues().apply { put(android.provider.MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
+        resolver.query(uri, arrayOf(android.provider.MediaStore.MediaColumns.DISPLAY_NAME), null, null, null)
+            ?.use { c -> if (c.moveToFirst()) c.getString(0) else null } ?: name
+    } else {
+        // Android 8–9: the app's own Downloads folder (no storage permission needed).
+        val dir = ctx.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: return@runCatching null
+        var f = java.io.File(dir, name)
+        var n = 1
+        while (f.exists()) f = java.io.File(dir, name.substringBeforeLast('.') + " (${n++})." + name.substringAfterLast('.'))
+        f.writeBytes(bytes)
+        f.absolutePath
+    }
+}.getOrNull()
+
+/** Asks for the file name before saving (owner, 2026-10-21). */
+@Composable
+private fun SaveFileDialog(suggested: String, onDismiss: () -> Unit, onSave: (String) -> Unit) {
+    var text by remember {
+        mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(suggested, androidx.compose.ui.text.TextRange(0, suggested.substringBeforeLast('.').length)))
+    }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Save file") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("It will be saved in Downloads.")
+                androidx.compose.material3.OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { Text("File name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = { onSave(text.text) }, enabled = text.text.isNotBlank()) { Text("Save") } },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+/** Android's print screen, where "Save as PDF" is one of the printers. [title] becomes the PDF's name. */
 private fun printPage(ctx: Context, wv: WebView, title: String) {
     val pm = ctx.getSystemService(PrintManager::class.java)
     val name = title.ifBlank { "FBR Clients page" }

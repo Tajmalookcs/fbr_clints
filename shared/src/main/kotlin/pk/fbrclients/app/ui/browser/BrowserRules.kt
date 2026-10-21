@@ -207,4 +207,27 @@ object BrowserRules {
             })();
         """.trimIndent()
     }
+
+    /**
+     * Runs at the start of every page (phone): files a page makes itself (blob:) stay
+     * readable for 2 minutes so the app can save them, and the page's Print command
+     * opens Android's print screen (where "Save as PDF" is a printer).
+     */
+    const val PAGE_START_JS = """
+        (function(){ if(window.__fbrStart) return; window.__fbrStart=1;
+          try { var rev=URL.revokeObjectURL; URL.revokeObjectURL=function(u){ setTimeout(function(){ try{ rev.call(URL,u); }catch(e){} }, 120000); }; } catch(e) {}
+          if (window.FbrDownload) { window.print=function(){ FbrDownload.print(); }; }
+        })();
+    """
+
+    /** Reads a file the page made (blob: address) and hands it to the app, which asks for its name. */
+    fun fetchBlobJs(url: String, mime: String): String = """
+        (function(){
+          fetch(${JSONObject.quote(url)}).then(function(r){ return r.blob(); }).then(function(b){
+            var fr=new FileReader();
+            fr.onloadend=function(){ var s=String(fr.result); FbrDownload.save(s.substring(s.indexOf(',')+1), b.type||${JSONObject.quote(mime)}); };
+            fr.readAsDataURL(b);
+          }).catch(function(e){ FbrDownload.failed(String(e)); });
+        })();
+    """.trimIndent()
 }
