@@ -49,13 +49,13 @@ class BrowserSmokeTest {
             note("IRIS title after load: " + iris.title)
         }
 
-        AppBrowser.open(AppBrowser.Request("https://bill.pitc.com.pk/fescobill", client, "12345678901234", emptyList(), "Bill test"), ::note)
-        val bill = waitForWindow("Bill test", 60)
+        AppBrowser.open(AppBrowser.Request(pk.fbrclients.app.ui.browser.BrowserRules.IRIS_REGISTRATION_URL, client, null, emptyList(), "Registration test"), ::note)
+        val bill = waitForWindow("Registration test", 60)
         if (bill != null) {
             Thread.sleep(20_000)
             bill.toFront()
             Thread.sleep(1_000)
-            shot(bill, "browser-2-bill")
+            shot(bill, "browser-2-registration")
         }
         iris?.dispose()
         bill?.dispose()

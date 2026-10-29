@@ -5,6 +5,12 @@
     <!-- Only for the in-app browser (IRIS, bill and tax-certificate sites).
          The client database is never sent anywhere. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Only asked when an IRIS / FBR page wants them (e.g. registration); never used by the app itself. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.location" android:required="false" />
     <!-- Saving downloaded bills / certificates to Downloads on Android 8-9. -->
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"

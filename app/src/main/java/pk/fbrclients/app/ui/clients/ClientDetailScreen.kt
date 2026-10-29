@@ -111,6 +111,7 @@ fun ClientDetailScreen(
                     clipboard.copy("Password", c.irisPassword, sensitive = true)
                 }
                 ActionButton("IRIS in app", null, true) { onOpenBrowser(Actions.IRIS_URL, null) }
+                ActionButton("IRIS registration", null, true) { onOpenBrowser(pk.fbrclients.app.ui.browser.BrowserRules.IRIS_REGISTRATION_URL, null) }
                 ActionButton("Open IRIS", null, true) {
                     // Password first, then username: the keyboard clipboard shows username, then password.
                     clipboard.copyLoginForKeyboard(Formats.irisUsername(c.cnic), c.irisPassword) { Actions.openIris(ctx) }

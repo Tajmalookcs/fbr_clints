@@ -230,4 +230,45 @@ object BrowserRules {
           }).catch(function(e){ FbrDownload.failed(String(e)); });
         })();
     """.trimIndent()
+
+    /** IRIS "New Registration" page (owner, 2026-10-29). */
+    const val IRIS_REGISTRATION_URL = "https://iris.fbr.gov.pk/NewRegistration?lang=en"
+
+    fun isRegistration(url: String) = isIris(url) && url.lowercase().contains("registration")
+
+    /**
+     * Registration form: fills obvious empty boxes (CNIC, full name, email, mobile, address)
+     * with the client's saved details, once per box, as the form's steps appear.
+     * Never presses a button. Runs every 1.5 s for 10 minutes while the page is open.
+     */
+    fun registrationFill(cnic: String, name: String, mobile: String, email: String, address: String): String {
+        fun q(v: String) = JSONObject.quote(v)
+        return """
+            (function(){ $HELPERS
+              if (window.__fbrReg) return 'running'; window.__fbrReg=1;
+              var V={cnic:${q(cnic)}, name:${q(name)}, mobile:${q(mobile)}, email:${q(email)}, address:${q(address)}};
+              function kind(e){
+                var h=hint(e), t=(e.type||'').toLowerCase();
+                if (t==='password' || /user|login|otp|code|captcha|pin|search/.test(h)) return null;
+                if (/xxxxx-xxxxxxx-x|cnic|nic\b|identity/.test(h)) return 'cnic';
+                if (t==='email' || /e-?mail/.test(h)) return 'email';
+                if (t==='tel' || /mobile|cell|phone|contact/.test(h)) return 'mobile';
+                if (/address/.test(h)) return 'address';
+                if (/full ?name|name as per|applicant name/.test(h)) return 'name';
+                return null;
+              }
+              function boxes(){ return Array.prototype.slice.call(document.querySelectorAll('input,textarea')).filter(function(e){
+                var r=e.getBoundingClientRect(); return !e.disabled && !e.readOnly && r.width>0 && r.height>0; }); }
+              function run(){
+                boxes().forEach(function(e){
+                  if (e.dataset.fbrFilled || e.value) return;
+                  var k=kind(e); if (!k || !V[k]) return;
+                  e.dataset.fbrFilled='1'; put(e, V[k]);
+                });
+              }
+              run(); var n=0; var t=setInterval(function(){ run(); if(++n>400) clearInterval(t); }, 1500);
+              return 'started';
+            })();
+        """.trimIndent()
+    }
 }

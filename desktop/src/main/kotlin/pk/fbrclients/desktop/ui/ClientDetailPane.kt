@@ -93,6 +93,14 @@ fun ClientDetailPane(state: AppState, c: Client) {
                         )
                     }) { Text("IRIS in app") }
                     OutlinedButton(onClick = {
+                        state.toast("Opening IRIS registration…")
+                        AppBrowser.open(
+                            AppBrowser.Request(pk.fbrclients.app.ui.browser.BrowserRules.IRIS_REGISTRATION_URL, c, null,
+                                data.discos.flatMap { listOf(it.billUrl, it.certUrl) }, c.name + " · Registration"),
+                            onStatus = state::toast,
+                        )
+                    }) { Text("IRIS registration") }
+                    OutlinedButton(onClick = {
                         GlobalScope.launch(Dispatchers.IO) { Clipboard.copyLogin(Formats.irisUsername(c.cnic), c.irisPassword) }
                         Open.url(IRIS_URL)
                         state.toast(if (c.irisPassword.isEmpty()) "Username copied" else "Username copied. Paste with Ctrl+V; for the password press Windows key + V and pick the 2nd item.")
