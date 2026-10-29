@@ -342,11 +342,6 @@ fun BrowserScreen(
                 }
             }
 
-            override fun onPermissionRequest(request: PermissionRequest) {
-                log("Site asked for: ${request.resources.joinToString()} — not allowed")
-                request.deny()
-            }
-
             override fun onJsAlert(view: WebView, url: String, message: String, result: JsResult): Boolean {
                 PageDialog.Builder(view.context).setMessage(message)
                     .setPositiveButton(android.R.string.ok) { _, _ -> result.confirm() }
