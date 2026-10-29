@@ -124,8 +124,17 @@ object AppBrowser {
             return scheme == "about" || scheme == "blob" || scheme == "devtools" || BrowserRules.isAllowed(url, r.extraLinks)
         }
 
+        val registration = BrowserRules.isRegistration(r.url)
         fun autoFill(b: CefBrowser) {
-            val js = BrowserRules.autoFill(b.url, username, password, r.reference) ?: return
+            val c = r.client
+            val js = if (registration || BrowserRules.isRegistration(b.url ?: "")) {
+                if (c == null) return
+                BrowserRules.registrationFill(
+                    cnic = if (c.cnic.length == 15) c.cnic else "",
+                    name = if (c.name != c.cnic) c.name else "",
+                    mobile = Formats.digitsOnly(c.mobile), email = c.email, address = c.address,
+                )
+            } else BrowserRules.autoFill(b.url, username, password, r.reference) ?: return
             // Sites like IRIS draw the login form a moment after the page loads: try a few times.
             for (delay in listOf(0L, 1_500L, 4_000L)) {
                 timer.schedule(object : TimerTask() {
@@ -227,8 +236,16 @@ object AppBrowser {
             add(button("Open in normal browser") { Open.url(browser.url) })
         }
         val bottom = JPanel(FlowLayout(FlowLayout.LEFT, 6, 4)).apply {
-            if (r.client != null) {
+            if (r.client != null && registration) {
                 add(JLabel("Fill:"))
+                if (r.client.cnic.length == 15) add(button("CNIC") { fill(r.client.cnic, false, "CNIC") })
+                add(button("Name") { fill(r.client.name, false, "Name") })
+                add(button("Mobile") { fill(Formats.digitsOnly(r.client.mobile), false, "Mobile") })
+                add(button("Email") { fill(r.client.email, false, "Email") })
+                add(button("Address") { fill(r.client.address, false, "Address") })
+            }
+            if (r.client != null) {
+                if (!registration) add(JLabel("Fill:"))
                 add(button("Username") { fill(username, false, "Username") })
                 add(button("Password") { fill(password, true, "Password") })
                 if (!r.client.ntn.isBlank()) add(button("NTN") { fill(r.client.ntn, false, "NTN") })

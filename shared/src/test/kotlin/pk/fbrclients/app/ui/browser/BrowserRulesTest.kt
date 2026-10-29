@@ -65,4 +65,13 @@ class BrowserRulesTest {
         assertTrue(BrowserRules.autoFill("https://iris.fbr.gov.pk/", "12345-1234567-1", "pw", null)!!.contains("12345-1234567-1"))
         assertTrue(BrowserRules.autoFill("https://bill.pitc.com.pk/fescobill", null, null, "12345678901234")!!.contains("12345678901234"))
     }
+
+    @Test fun registration() {
+        assertTrue(BrowserRules.isRegistration(BrowserRules.IRIS_REGISTRATION_URL))
+        assertFalse(BrowserRules.isRegistration("https://iris.fbr.gov.pk/login"))
+        val js = BrowserRules.registrationFill("12345-1234567-1", "Test \"Q\"", "03001234567", "t@example.pk", "House 1")
+        assertTrue(js.contains("\"12345-1234567-1\""))
+        assertTrue(js.contains("Test \\\"Q\\\""))
+        assertFalse(js.contains("click()"))
+    }
 }

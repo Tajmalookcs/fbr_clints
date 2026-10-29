@@ -146,6 +146,23 @@ fun BrowserScreen(
     var chooseWhatsApp by remember { mutableStateOf<SavedFile?>(null) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
+    // Location / camera asked for by IRIS (owner, 2026-10-29): Android asks the owner, then the page gets the answer.
+    var permissionAnswer by remember { mutableStateOf<((Boolean) -> Unit)?>(null) }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
+        val ok = res.values.any { it }
+        permissionAnswer?.invoke(ok)
+        permissionAnswer = null
+    }
+    fun askAndroid(perms: Array<String>, answer: (Boolean) -> Unit) {
+        if (perms.all { androidx.core.content.ContextCompat.checkSelfPermission(ctx, it) == android.content.pm.PackageManager.PERMISSION_GRANTED }) {
+            answer(true); return
+        }
+        permissionAnswer?.invoke(false)
+        permissionAnswer = answer
+        permissionLauncher.launch(perms)
+    }
+    val registration = BrowserRules.isRegistration(startUrl)
+
     /** The page the fill buttons and menu act on: the popup when one is open. */
     fun active(): WebView? = popup.value ?: webView.value
 
@@ -199,6 +216,8 @@ fun BrowserScreen(
             // Like Chrome: allow pages that load a few parts over http.
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
             mediaPlaybackRequiresUserGesture = true
+            @Suppress("DEPRECATION")
+            setGeolocationEnabled(true)
         }
         // Don't tell sites the page is inside an app (Android adds this header otherwise).
         if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
@@ -269,8 +288,12 @@ fun BrowserScreen(
                     title = view.title.orEmpty()
                 }
                 val c = client
-                BrowserRules.autoFill(url, c?.cnic?.let(Formats::irisUsername), c?.irisPassword, reference)?.let { js ->
-                    view.evaluateJavascript(js, null)
+                if (registration || BrowserRules.isRegistration(url)) {
+                    if (c != null) view.evaluateJavascript(registrationJs(c), null)
+                } else {
+                    BrowserRules.autoFill(url, c?.cnic?.let(Formats::irisUsername), c?.irisPassword, reference)?.let { js ->
+                        view.evaluateJavascript(js, null)
+                    }
                 }
             }
         }
@@ -286,6 +309,26 @@ fun BrowserScreen(
                 return true
             }
 
+            override fun onGeolocationPermissionsShowPrompt(origin: String, callback: android.webkit.GeolocationPermissions.Callback) {
+                log("Site asked for location: $origin")
+                if (!BrowserRules.isAllowed(origin.trimEnd('/') + "/", extraLinks)) { callback.invoke(origin, false, false); return }
+                askAndroid(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)) { ok ->
+                    log(if (ok) "Location allowed" else "Location not allowed")
+                    callback.invoke(origin, ok, false)
+                }
+            }
+
+            override fun onPermissionRequest(request: android.webkit.PermissionRequest) {
+                val origin = request.origin.toString()
+                log("Site asked for: " + request.resources.joinToString { it.substringAfterLast('.') } + " ($origin)")
+                val camera = request.resources.filter { it == android.webkit.PermissionRequest.RESOURCE_VIDEO_CAPTURE }
+                if (camera.isEmpty() || !BrowserRules.isAllowed(origin.trimEnd('/') + "/", extraLinks)) { request.deny(); return }
+                askAndroid(arrayOf(android.Manifest.permission.CAMERA)) { ok ->
+                    log(if (ok) "Camera allowed" else "Camera not allowed")
+                    if (ok) request.grant(camera.toTypedArray()) else request.deny()
+                }
+            }
+
             override fun onShowFileChooser(view: WebView, callback: ValueCallback<Array<Uri>>, params: FileChooserParams): Boolean {
                 fileCallback?.onReceiveValue(null)
                 fileCallback = callback
@@ -297,11 +340,6 @@ fun BrowserScreen(
                     log("File chooser failed: ${e.message}")
                     false
                 }
-            }
-
-            override fun onPermissionRequest(request: PermissionRequest) {
-                log("Site asked for: ${request.resources.joinToString()} — not allowed")
-                request.deny()
             }
 
             override fun onJsAlert(view: WebView, url: String, message: String, result: JsResult): Boolean {
@@ -479,6 +517,13 @@ fun BrowserScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         val c = client
+                        if (c != null && registration) {
+                            if (c.cnic.length == 15) FilledTonalButton(onClick = { fill(c.cnic, false, "CNIC") }) { Text("CNIC") }
+                            FilledTonalButton(onClick = { fill(c.name, false, "name") }) { Text("Name") }
+                            FilledTonalButton(onClick = { fill(Formats.digitsOnly(c.mobile), false, "mobile") }) { Text("Mobile") }
+                            FilledTonalButton(onClick = { fill(c.email, false, "email") }) { Text("Email") }
+                            FilledTonalButton(onClick = { fill(c.address, false, "address") }) { Text("Address") }
+                        }
                         if (c != null) {
                             FilledTonalButton(onClick = { fill(Formats.irisUsername(c.cnic), false, "username") }) { Text("Username") }
                             FilledTonalButton(onClick = { fill(c.irisPassword, true, "password") }) { Text("Password") }
@@ -788,3 +833,12 @@ private fun clipboardText(ctx: Context, label: String, text: String) {
         .setPrimaryClip(android.content.ClipData.newPlainText(label, text))
     Toast.makeText(ctx, "Copied", Toast.LENGTH_SHORT).show()
 }
+
+/** The registration form fill for [c] (only the details that are saved). */
+private fun registrationJs(c: Client) = BrowserRules.registrationFill(
+    cnic = if (c.cnic.length == 15) c.cnic else "",
+    name = if (c.name != c.cnic) c.name else "",
+    mobile = Formats.digitsOnly(c.mobile),
+    email = c.email,
+    address = c.address,
+)
